@@ -1,0 +1,10 @@
+1) una strategia per esplorare la rete identificando quali sono i server piu usati
+
+start from one instance, save all informations
+for all the friends see if they're alive
+for all the non-dead repeat recursively
+
+2) una strategia per identificare gli utenti di singolo server, possibilmente identificando quando si sono registrati
+    scrape until you reach the stated number
+
+3) una strategia per tracciare i link che hanno utenti nei diversi server   
