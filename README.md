@@ -1,4 +1,4 @@
-# mastodon_scraper
+# Mastodon scraper
 
 A few scripts to to scrape data from mastodon. 
 
