@@ -4,10 +4,13 @@
 # Secret token: 9oj4cqwvRNjaFiTNnH9KBayh8acmOHscTrKeEa9dJnb0KJyalCWzMJ4EhJegE0ZDDEZZRxDXvkl2Q0KnlDbk8WS5VNSssSCBxkDCfDZIxE1MX5TcsNnaGrtAG6JHgfNr
 
 from mastodon import Mastodon
+import mastodon as m
 import json
 import requests
 import pandas as pd
 from mastodon.internals import Mastodon as Internals
+
+
 
 
 Mastodon.create_app(
@@ -24,29 +27,10 @@ mastodon.log_in(
     to_file = 'pytooter_usercred.secret'
 )
 
+print(len(mastodon.account_followers(1)))
 
-# r = requests.get('https://instances.social/api/1.0/instances/list', headers={'Authorization': 'Bearer 9oj4cqwvRNjaFiTNnH9KBayh8acmOHscTrKeEa9dJnb0KJyalCWzMJ4EhJegE0ZDDEZZRxDXvkl2Q0KnlDbk8WS5VNSssSCBxkDCfDZIxE1MX5TcsNnaGrtAG6JHgfNr'})
-# print(len(json.loads(r.content)))
-
-class Mine(Internals): 
-
-
-
-    def instance(self):
-        """
-        Internal, non-version-checking helper that does the same as instance()
-        """
-        instance = super().api_request('GET', '/api/v1/instance/')
-        return instance
-
-if __name__ == "__main__": 
-    m = Mine()
-    print(m.instance())
-
-
-
-
-
-
-
-
+# for i in range(1, 10000): 
+#     try: 
+#         print(mastodon.account(i))
+#     except m.errors.MastodonNotFoundError as err: 
+#         print(err, i)

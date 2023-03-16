@@ -1,11 +1,10 @@
-from mastodon import Mastodon
+# https://stackoverflow.com/questions/4783735/problem-with-multi-threaded-python-app-and-socket-connections 
+
 import json
 import time
-import pickle
 import requests
 import threading
 from tqdm import tqdm
-import pandas as pd
 
 class InstanceList: 
     def __init__(self) -> None:
@@ -55,8 +54,8 @@ class InstanceList:
             else: 
                 start_step = len(peers) -1
 
-            # open 50 threads at the time
-            for i in range(start_step, len(peers), start_step): 
+            # open 50 threads at the time otherwise connections get lost
+            for i in range(start_step, len(peers[:1000]), start_step): 
                 threads = []
                 for n, peer in enumerate(peers[prev:i]): 
                     with self.lock: 
