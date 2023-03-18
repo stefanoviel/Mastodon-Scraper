@@ -1,1 +1,221 @@
-{}
+{
+    "fo0bar.org": {
+        "uri": "fo0bar.org",
+        "title": "Mastodon",
+        "short_description": "Private instance of mastodon.",
+        "description": "",
+        "email": "fo0bar@fo0bar.org",
+        "version": "4.1.1",
+        "urls": {
+            "streaming_api": "wss://fo0bar.org"
+        },
+        "stats": {
+            "user_count": 4,
+            "status_count": 132,
+            "domain_count": 4395
+        },
+        "thumbnail": "https://fo0bar.org/packs/media/images/preview-6399aebd96ccf025654e2977454f168f.png",
+        "languages": [
+            "en"
+        ],
+        "registrations": false,
+        "approval_required": false,
+        "invites_enabled": false
+    },
+    "pl.eragon.re": {
+        "approval_required": false,
+        "avatar_upload_limit": 1000000000,
+        "background_image": "https://pl.eragon.re/images/city.jpg",
+        "background_upload_limit": 1000000000,
+        "banner_upload_limit": 1000000000,
+        "description": "Eragon personal instance in the fediverse",
+        "description_limit": 5000,
+        "email": "eragon@eragon.re",
+        "languages": [
+            "en"
+        ],
+        "max_media_attachments": 1000,
+        "max_toot_chars": 5000,
+        "pleroma": {
+            "metadata": {
+                "account_activation_required": false,
+                "birthday_min_age": 0,
+                "birthday_required": false,
+                "features": [
+                    "pleroma_api",
+                    "mastodon_api",
+                    "mastodon_api_streaming",
+                    "polls",
+                    "v2_suggestions",
+                    "pleroma_explicit_addressing",
+                    "shareable_emoji_packs",
+                    "multifetch",
+                    "pleroma:api/v1/notifications:include_types_filter",
+                    "editing",
+                    "blockers_visible",
+                    "chat",
+                    "shout",
+                    "relay",
+                    "pleroma_emoji_reactions",
+                    "pleroma_custom_emoji_reactions",
+                    "pleroma_chat_messages",
+                    "exposable_reactions",
+                    "profile_directory",
+                    "pleroma:get:main/ostatus"
+                ],
+                "federation": {
+                    "enabled": true,
+                    "exclusions": false,
+                    "mrf_hashtag": {
+                        "federated_timeline_removal": [],
+                        "reject": [],
+                        "sensitive": [
+                            "nsfw"
+                        ]
+                    },
+                    "mrf_hellthread": {
+                        "delist_threshold": 10,
+                        "reject_threshold": 20
+                    },
+                    "mrf_object_age": {
+                        "actions": [
+                            "delist",
+                            "strip_followers"
+                        ],
+                        "threshold": 604800
+                    },
+                    "mrf_policies": [
+                        "SimplePolicy",
+                        "HellthreadPolicy",
+                        "ObjectAgePolicy",
+                        "StealEmojiPolicy",
+                        "ActivityExpirationPolicy",
+                        "HashtagPolicy"
+                    ],
+                    "mrf_simple": {
+                        "accept": [],
+                        "avatar_removal": [],
+                        "banner_removal": [],
+                        "federated_timeline_removal": [],
+                        "followers_only": [],
+                        "media_nsfw": [],
+                        "media_removal": [],
+                        "reject": [
+                            "freespeechextremist.com"
+                        ],
+                        "reject_deletes": [],
+                        "report_removal": []
+                    },
+                    "mrf_simple_info": {},
+                    "quarantined_instances": [],
+                    "quarantined_instances_info": {
+                        "quarantined_instances": {}
+                    }
+                },
+                "fields_limits": {
+                    "max_fields": 10,
+                    "max_remote_fields": 20,
+                    "name_length": 512,
+                    "value_length": 2048
+                },
+                "post_formats": [
+                    "text/plain",
+                    "text/html",
+                    "text/markdown",
+                    "text/bbcode"
+                ]
+            },
+            "stats": {
+                "mau": 1
+            },
+            "vapid_public_key": "BA6aygmxfeZ8pG0cUwv4Bp5jmyzE9UsQEaJJnsDQpw2eADK72UD-kf4y7kRRCXXO8E6DkeUwVNxCH8Zdxm1h3fU"
+        },
+        "poll_limits": {
+            "max_expiration": 31536000,
+            "max_option_chars": 200,
+            "max_options": 20,
+            "min_expiration": 0
+        },
+        "registrations": false,
+        "short_description": "",
+        "shout_limit": 5000,
+        "stats": {
+            "domain_count": 7207,
+            "status_count": 1261,
+            "user_count": 1
+        },
+        "thumbnail": "https://pl.eragon.re/instance/thumbnail.jpeg",
+        "title": "pl.eragon.re",
+        "upload_limit": 1000000000,
+        "uri": "https://pl.eragon.re",
+        "urls": {
+            "streaming_api": "wss://pl.eragon.re"
+        },
+        "version": "2.7.2 (compatible; Pleroma 2.5.51-68-g9145fd04-develop)"
+    },
+    "mastodon.maho-do.jp": {
+        "uri": "mastodon.maho-do.jp",
+        "title": "Mastodon",
+        "short_description": "",
+        "description": "\u500b\u4eba\u7684\u306a\u5229\u7528\u30fb\u5b9f\u9a13\u306e\u305f\u3081\u306e\u30a4\u30f3\u30b9\u30bf\u30f3\u30b9\u3067\u3059\u3002",
+        "email": "",
+        "version": "4.1.0",
+        "urls": {
+            "streaming_api": "wss://mastodon.maho-do.jp"
+        },
+        "stats": {
+            "user_count": 5,
+            "status_count": 279,
+            "domain_count": 3016
+        },
+        "thumbnail": "https://mastodon.maho-do.jp/packs/media/images/preview-6399aebd96ccf025654e2977454f168f.png",
+        "languages": [
+            "ja"
+        ],
+        "registrations": false,
+        "approval_required": false,
+        "invites_enabled": false
+    },
+    "mstdn.nielniel.net": {
+        "uri": "mstdn.nielniel.net",
+        "title": "\u306b\u308b\u306d\u3063\u3068",
+        "short_description": "\u3053\u3053\u306b\u306f\u4f55\u3082\u306a\u3044\u3057\u3001\u8ab0\u3082\u5c45\u306a\u3044\u3002\u81ea\u5206\u3060\u3051\u306e\u5cf6\u3002",
+        "description": "\u3046\u3093\u3061\u3057\u307e\u3057\u3087\u3046\u3002",
+        "email": "NielNate@gmail.com",
+        "version": "3.1.4",
+        "urls": {
+            "streaming_api": "wss://mstdn.nielniel.net"
+        },
+        "stats": {
+            "user_count": 1,
+            "status_count": 64468,
+            "domain_count": 3406
+        },
+        "thumbnail": "https://mstdn.nielniel.net/packs/media/images/preview-9a17d32fc48369e8ccd910a75260e67d.jpg",
+        "languages": [
+            "en"
+        ],
+        "registrations": false,
+        "approval_required": false,
+        "invites_enabled": false
+    },
+    "ostatus.yoh2.ddo.jp": {
+        "uri": "ostatus.yoh2.ddo.jp",
+        "title": "Mastodon - yoh2",
+        "description": "\u3068\u308a\u3042\u3048\u305a\u7acb\u3066\u3066\u307f\u305f (\u8ee2\u751f 3 \u56de\u76ee)\u3002",
+        "email": "",
+        "version": "2.4.3",
+        "urls": {
+            "streaming_api": "wss://ostatus.yoh2.ddo.jp"
+        },
+        "stats": {
+            "user_count": 2,
+            "status_count": 183,
+            "domain_count": 556
+        },
+        "thumbnail": "https://ostatus.yoh2.ddo.jp/packs/preview-9a17d32fc48369e8ccd910a75260e67d.jpg",
+        "languages": [
+            "en"
+        ]
+    }
+}

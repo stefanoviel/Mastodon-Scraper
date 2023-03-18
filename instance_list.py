@@ -37,10 +37,13 @@ class InstanceList:
         with self.lock: 
             still_to_scan = len(self.to_scan)
 
-        while still_to_scan > 0: 
+        while True: 
             with self.lock: 
                 # get next instance to scan
-                instance, depth = self.to_scan.pop(0)
+                if len(self.to_scan) > 0:
+                    instance, depth = self.to_scan.pop(0)
+                else: 
+                    break
 
             try: 
                 # get the known peers of the instance
@@ -55,7 +58,7 @@ class InstanceList:
                 start_step = len(peers) -1
 
             # open 50 threads at the time otherwise connections get lost
-            for i in range(start_step, len(peers[:1000]), start_step): 
+            for i in range(start_step, len(peers[:100]), start_step): 
                 threads = []
                 for n, peer in enumerate(peers[prev:i]): 
                     with self.lock: 

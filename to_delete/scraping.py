@@ -11,8 +11,6 @@ import pandas as pd
 from mastodon.internals import Mastodon as Internals
 
 
-
-
 Mastodon.create_app(
     'pytooterapp',
     api_base_url = 'https://mastodon.social',
