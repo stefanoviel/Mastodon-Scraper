@@ -1,30 +1,34 @@
 # https://stackoverflow.com/questions/4783735/problem-with-multi-threaded-python-app-and-socket-connections 
+# 1008303
 
 import json
 import time
 import requests
 import threading
+import concurrent.futures
 from tqdm import tqdm
 
 class InstanceList: 
     def __init__(self) -> None:
         self.instances_path = 'data/instances.json'
 
-        self.to_scan = [('mastodon.social', 0)]
-        self.max_depth = 0
+        self.to_scan = [('mastodon.social', -1)]
+        self.max_depth = 1
 
         f = open(self.instances_path)
         self.archive = json.load(f)
         self.scanned = list(self.archive.keys())
         f.close()
 
-        self.i = 0
+        self.CONNECTIONS = 100
+        self.TIMEOUT = 3
+        self.i = 0 
         self.lock = threading.Lock()
 
     def save_archive(self) -> None:
         s = time.time()
         with open(self.instances_path, 'w') as f:
-            json.dump(self.archive, f, indent=4)
+                json.dump(self.archive, f, indent=4)
         print('saved in', round(time.time() - s, 2), 'seconds')
 
 
@@ -37,7 +41,7 @@ class InstanceList:
         with self.lock: 
             still_to_scan = len(self.to_scan)
 
-        while True: 
+        while still_to_scan > 0: 
             with self.lock: 
                 # get next instance to scan
                 if len(self.to_scan) > 0:
@@ -48,33 +52,18 @@ class InstanceList:
             try: 
                 # get the known peers of the instance
                 peers = self.get_instance_peers(instance)   
-            except SyntaxError as err: 
-                 print(peer, 'as no peers')
+            except (SyntaxError, requests.exceptions.RequestException) as err : 
+                pass
             
-            prev = 0
-            if len(peers) > 50: 
-                start_step = 50
-            else: 
-                start_step = len(peers) -1
-
-            # open 50 threads at the time otherwise connections get lost
-            for i in range(start_step, len(peers[:100]), start_step): 
-                threads = []
-                for n, peer in enumerate(peers[prev:i]): 
-                    with self.lock: 
-                        if  peer in self.scanned  : 
-                            continue
-
-                    thread = threading.Thread(target=self.scan_peer, args=(peer, depth + 1))
-                    thread.start()
-                    threads.append(thread)
-
-                for t in threads: 
-                    t.join()
-                prev = i
-
+            out = {}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.CONNECTIONS) as executor:
+                future_to_url = (executor.submit(self.scan_peer, url, depth+1) for url in peers)
+                for future in concurrent.futures.as_completed(future_to_url):
+                    pass
+            
+     
+                
         self.save_archive()
-
         print('finished in', round(time.time() - s, 2), 'seconds - ', self.i, 'instances retrieved')
 
 
@@ -86,9 +75,12 @@ class InstanceList:
         try:
             with self.lock:
                 # mark the instance as visited
-                self.scanned.append(peer)    
+                if peer in self.scanned : 
+                    return 
+                else: 
+                    self.scanned.append(peer)    
 
-            print(f"Scanning peer: {peer} ")
+            # print(f"Scanning peer: {peer} ")
             response = self.get_instance_info(peer)
             response.raise_for_status()
 
@@ -105,18 +97,26 @@ class InstanceList:
             
             uri = data.get('uri')
             if isinstance(uri, str): 
-                self.i += 1 
-                print(self.i)
+                with self.lock: 
+                    self.i += 1 
+                    if self.i % 1000 == 0: 
+                        self.save_archive()
+
+                print('instances found', self.i, 'for', len(self.scanned), 'scanned',  end='\r')
 
                 # save instance to archive    
                 self.archive[peer] = data
                 # don't scan anymore when max_depth is exceeded
                 if  depth < self.max_depth: 
-                    self.to_scan.append((peer, depth))
+                    with self.lock: 
+                        self.to_scan.append((peer, depth))
         
         except requests.exceptions.RequestException as err:
             # Log the error
-            print(f"Error scanning peer {peer}: {type(err)} ")
+            # print(f"Error scanning peer {peer}: {type(err)} ")
+            pass
+
+        
 
         
     def get_instance_peers(self, instance_name) -> list[str]: 
@@ -132,7 +132,7 @@ class InstanceList:
 
 if __name__ == "__main__": 
     instancesList = InstanceList()    
-    instancesList.deep_scan()   
-    # print(len(instancesList.archive.keys()))
+    # instancesList.deep_scan()   
+    print(len(instancesList.archive.keys()))
 
 
