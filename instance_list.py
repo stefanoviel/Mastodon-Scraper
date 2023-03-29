@@ -55,7 +55,6 @@ class InstanceList:
             except (SyntaxError, requests.exceptions.RequestException) as err : 
                 pass
             
-            out = {}
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.CONNECTIONS) as executor:
                 future_to_url = (executor.submit(self.scan_peer, url, depth+1) for url in peers)
                 for future in concurrent.futures.as_completed(future_to_url):
