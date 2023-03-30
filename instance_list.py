@@ -12,8 +12,8 @@ class InstanceList:
     def __init__(self) -> None:
         self.instances_path = 'data/instances.json'
 
-        self.to_scan = [('mastodon.social', -1)]
-        self.max_depth = 1
+        self.to_scan = [('mastodon.social', 0)]
+        self.max_depth = 2
 
         f = open(self.instances_path)
         self.archive = json.load(f)
@@ -106,7 +106,7 @@ class InstanceList:
                 # save instance to archive    
                 self.archive[peer] = data
                 # don't scan anymore when max_depth is exceeded
-                if  depth < self.max_depth: 
+                if  depth <= self.max_depth: 
                     with self.lock: 
                         self.to_scan.append((peer, depth))
         
