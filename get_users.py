@@ -2,10 +2,14 @@ import copy
 import json
 import time
 import requests
+import asyncio
+import aiohttp
+import time
 import threading
 import concurrent.futures
 from tqdm import tqdm
 import re
+
 
 
 # TODO split in different files
@@ -16,13 +20,14 @@ class UserList:
         self.users_path = 'data/users.json'
         self.network_path = 'data/users_network.json'
         self.to_scan_path = 'data/users_to_scan.json'
-        self.MAX_DEPTH = 1
-        self.MAX_QUERY_FIVE_MINUTES = 270
+        self.MAX_DEPTH = 3
+        self.MAX_QUERY_FIVE_MINUTES = 100
         self.MAX_ACCOUNTS_PER_TIME = 100
-        self.MAX_CONNECTIONS = 200
+        self.MAX_CONNECTIONS = 100
         self.TIMEOUT = 3
         self.lock = threading.Lock()
-        self.time = 0
+        self.currently_scanning = 0
+        self.results = {}
 
         with open(self.users_path) as f:
             self.archive = json.load(f)
@@ -78,28 +83,80 @@ class UserList:
             return username.group(1)
         else:
             return None
+        
+
+    async def gather_with_concurrency(self, n, *tasks):
+        semaphore = asyncio.Semaphore(n)
+
+        async def sem_task(task):
+            async with semaphore:
+                return await task
+
+        return await asyncio.gather(*(sem_task(task) for task in tasks))
+
+
+    async def get_async(self, url, session, results):
+        async with session.get(url) as response:
+            i = url.split('/')[-1]
+            obj = await response.text()
+            results[i] = obj
+
+
+    async def main(self, users):
+        conn = aiohttp.TCPConnector(limit=None, ttl_dns_cache=300)
+        session = aiohttp.ClientSession(connector=conn)
+        results = {}
+
+        instances = [u.get_instance_from_url(user_url) for user_url in users]
+        usernames = [u.get_username_from_url(user_url) for user_url in users]
+
+        urls = []
+        for instance, username in zip(instances, usernames): 
+            if instance is not None and username is not None: 
+
+                urls.append(instance + '/api/v2/search/?q=' + username)
+
+        conc_req = 40
+        now = time.time()
+        await self.gather_with_concurrency(conc_req, *[self.get_async(i, session, results) for i in urls])
+        time_taken = time.time() - now
+
+        # print(time_taken)
+        await session.close()
+
+        self.results =   results
+
+
+    
 
     def get_id_from_url(self, user_url: str) -> str:
+        print('id from url')
+        loop = asyncio.get_event_loop()
 
-        instance = self.get_instance_from_url(user_url)
-        username = self.get_username_from_url(user_url)
+        done, _ = loop.run_until_complete(asyncio.wait(self.main()))
+        for fut in done:
+            print("return value is {}".format(fut.result()))
+        loop.close()
+        print('done id from url')
 
-        if instance is None or username is None: 
-            return None
+        # instance = self.get_instance_from_url(user_url)
+        # username = self.get_username_from_url(user_url)
 
-        try:
-            url = instance + '/api/v2/search/?q=' + username
-            r = requests.get(url, timeout=self.TIMEOUT) # TODO I don't check if I have made too many requests
+        # if instance is None or username is None: 
+        #     return None
 
-            with self.lock:
-                if instance in self.to_scan:
-                    self.to_scan[instance]['time_query'].append(time.time())
-
-            id = r.json()['accounts'][0]['id']
-        except Exception as e:
-            return None
-
-        return id
+        # try:
+        #     url = instance + '/api/v2/search/?q=' + username
+        #     r = requests.get(url, timeout=self.TIMEOUT)  # TODO I don't check if I have made too many requests
+        #     with self.lock:
+        #         if instance in self.to_scan:
+        #             self.to_scan[instance]['time_query'].append(time.time())
+        #     id = r.json()['accounts'][0]['id']
+        # except Exception as e: 
+        #     print(e)
+        #     return None
+        
+        # return id
 
     def get_followers_following_urls(self, instance_name: str, account_id: str) -> dict[str, str]:
 
@@ -115,7 +172,8 @@ class UserList:
             return {}
 
         try:
-            r = requests.get(account[page_name], timeout=self.TIMEOUT)
+            params = {'limit': 80}
+            r = requests.get(account[page_name], params = params, timeout=self.TIMEOUT)
 
             with self.lockers[instance_name]:
                 self.to_scan[instance_name]['time_query'].append(
@@ -123,7 +181,7 @@ class UserList:
 
             # save next availible page otherwise we are done
             if 'next' in r.links.keys():
-                account[page_name] = r.links['next']['url']
+                account[page_name] = r.links['next']['url'] 
             else:
                 account[page_name] = 'done'
 
@@ -161,8 +219,7 @@ class UserList:
                 # check user isn't already present
                 if f['url'] not in list(self.archive.keys()):
                     self.archive[f['url']] = f  # add to archive
-                    self.network[f['url']] = {
-                        'followers': [], 'following': []}  # add to archive
+                    self.network[f['url']] = {'followers': [], 'following': []}  # add to network
 
                     if relationship_type == 'followers':
                         self.network[current_account['url']]['followers'].append(f['url'])
@@ -171,6 +228,9 @@ class UserList:
                         self.network[current_account['url']]['following'].append(f['url'])
                         self.network[f['url']]['following'].append(current_account['url'])
 
+
+
+    
     def add_users_to_scan(self, current_account:str, user_list:str) -> None:
         if user_list and 'error' not in user_list:
             for f in user_list:
@@ -180,6 +240,7 @@ class UserList:
                         id = self.get_id_from_url(f['url'])
                         if instance and id:
                             with self.lock:
+                                # print('adding', f['url'])
                                 self.init_instance(instance, f['url'], id, current_account['depth'] + 1)
 
   
@@ -190,7 +251,8 @@ class UserList:
             for i in self.to_scan[instance_name]['time_query']:
                 if i > five_minutes_ago:
                     less_than_five.append(i)
-            self.to_scan[instance_name]['time_query'] = less_than_five
+            self.to_scan[instance_name]['time_query'] = less_than_five # TODO doesn't work
+            print(len(self.to_scan[instance_name]['time_query']))
 
         return len(less_than_five)
     
@@ -214,7 +276,7 @@ class UserList:
 
         while self.number_query_last_five_min(instance) < self.MAX_QUERY_FIVE_MINUTES and num_accounts_still_to_scan > 0:
             # print('last 5 min query for ', instance, ':', self.number_query_last_five_min(instance))
-            print('total account scraped', len(self.archive), end = '\r')
+            print('total accounts scraped', len(self.archive), instance,  end = '\r')
             # follower and following of account completely scanned
             if account['next_page_followers'] == 'done' and account['next_page_following'] == 'done':
                 with self.lockers[instance]:
@@ -243,9 +305,11 @@ class UserList:
             with self.lockers[instance]:
                 num_accounts_still_to_scan = len(self.to_scan[instance]['accounts'].keys())
 
-            print('total account scraped', len(self.archive), end='\r')
-            print('total account scraped', len(self.archive), end='\r')
 
+        self.save_archives()
+        self.currently_scanning -= 1
+        print('done', instance, self.currently_scanning)
+        
 
     def query_all(self):
         # query starting from first user until max depth is passed
@@ -260,16 +324,17 @@ class UserList:
                 # deep copy otherwise it would chance while iterating
                 with self.lock:
                     current_to_scan = copy.deepcopy(list(self.to_scan.keys()))
+                self.currently_scanning = len(current_to_scan)
 
+                futures = []
                 for instance in current_to_scan:
 
                     for account in list(self.to_scan[instance]['accounts'].keys())[:self.MAX_ACCOUNTS_PER_TIME]:
                         print('scanning', instance)
-                        # self.scan_account(instance, self.to_scan[instance]['accounts'][account], account)
-                        future_to_url = (executor.submit(self.scan_account, instance, self.to_scan[instance]['accounts'][account], account))
+                        self.scan_account(instance, self.to_scan[instance]['accounts'][account], account)
+                        # futures.append(executor.submit(self.scan_account, instance, self.to_scan[instance]['accounts'][account], account))
                     
-
-                _ = concurrent.futures.as_completed(future_to_url)
+                _ = concurrent.futures.wait(futures)
 
             self.save_archives()
             i += 1
@@ -285,5 +350,79 @@ class UserList:
 
 if __name__ == "__main__":
     u = UserList()
-    # u.reset_data_structures()
+    u.reset_data_structures()
     u.query_all()
+
+    # users = ["https://mastodon.social/@pizzaghost",
+    #         "https://mastodon.social/@christianbishop",
+    #         "https://mastodon.social/@kpazgan",
+    #         "https://mastodon.world/@lazysoundsystem",
+    #         "https://mastodon.social/@wardsology",
+    #         "https://mastodon.social/@nkt407",
+    #         "https://infosec.exchange/@_t0",
+    #         "https://mastodon.social/@whatjustin",
+    #         "https://social.cologne/@rogertyler44",
+    #         "https://mastodon.social/@J01001101",
+    #         "https://mastodon.online/@MagicianDavid",
+    #         "https://mastodon.social/@fangfei",
+    #         "https://mstdn.social/@Magiciandavid",
+    #         "https://mastodon.social/@HawkeyeCoffee",
+    #         "https://pol.social/@piotrsikora",
+    #         "https://mstdn.ca/@idoclosecuts", 
+    #         "https://mastodon.social/@davidklapheck",
+    #         "https://mstdn.jp/@inadvertently00",
+    #         "https://mastodon.social/@dgrpnar",
+    #         "https://mastodon.social/@Eurybis",
+    #         "https://mastodon.social/@warrenhoward",
+    #         "https://literatur.social/@moranaga",
+    #         "https://mastodon.social/@brookburris",
+    #         "https://toot.cryolog.in/@fReNe7iK",
+    #         "https://mastodon.social/@nicklyons",
+    #         "https://mastodon.social/@Caohim",
+    #         "https://mastodon.online/@momo345",
+    #         "https://mastodon.social/@briankernohan",
+    #         "https://mastodon.social/@huynnn301",
+    #         "https://mastodon.social/@Hukson",
+    #         "https://mastodon.social/@Danteguyy",
+    #         "https://mastodon.com.tr/@FloydianDM",
+    #         "https://mastodon.world/@tinoomi",
+    #         "https://toot.wales/@fkamiah17",
+    #         "https://mastodon.social/@krati05",
+    #         "https://mastodon.social/@Kennydev",
+    #         "https://mastodon.online/@HollyKinnamon",
+    #         "https://mastodon.online/@kggn",]
+    
+
+    # # s = time.time()
+    # # for user in users: 
+    # #     print(u.get_id_from_url(user))
+
+    # # print('time', time.time() - s)
+
+
+
+    # # rs = (grequests.get(u) for u in users)
+    # # print(grequests.map(rs))
+
+
+    # instances = [u.get_instance_from_url(user_url) for user_url in users]
+    # usernames = [u.get_username_from_url(user_url) for user_url in users]
+
+    # urls = []
+    # for instance, username in zip(instances, usernames): 
+    #     if instance is not None and username is not None: 
+
+    #         urls.append(instance + '/api/v2/search/?q=' + username)
+    
+    # rs = (grequests.get(u) for u in users)
+    # print(grequests.map(rs))
+
+
+
+
+    
+
+    
+
+
+    
