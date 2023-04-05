@@ -12,7 +12,9 @@ import re
 
 
 
-# TODO split in different files
+# TODO split in different files 
+# paralelize id requests !!!
+# how to test the different parts
 # use login
 
 class UserList:
@@ -130,14 +132,13 @@ class UserList:
     
 
     def get_id_from_url(self, user_url: str) -> str:
-        print('id from url')
+
         loop = asyncio.get_event_loop()
 
         done, _ = loop.run_until_complete(asyncio.wait(self.main()))
         for fut in done:
             print("return value is {}".format(fut.result()))
         loop.close()
-        print('done id from url')
 
         # instance = self.get_instance_from_url(user_url)
         # username = self.get_username_from_url(user_url)
@@ -331,8 +332,8 @@ class UserList:
 
                     for account in list(self.to_scan[instance]['accounts'].keys())[:self.MAX_ACCOUNTS_PER_TIME]:
                         print('scanning', instance)
-                        self.scan_account(instance, self.to_scan[instance]['accounts'][account], account)
-                        # futures.append(executor.submit(self.scan_account, instance, self.to_scan[instance]['accounts'][account], account))
+                        # self.scan_account(instance, self.to_scan[instance]['accounts'][account], account)
+                        futures.append(executor.submit(self.scan_account, instance, self.to_scan[instance]['accounts'][account], account))
                     
                 _ = concurrent.futures.wait(futures)
 
@@ -419,6 +420,8 @@ if __name__ == "__main__":
 
 
 
+
+# get ids
 
     
 
