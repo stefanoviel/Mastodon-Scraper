@@ -7,9 +7,14 @@
 import copy
 import json
 import time
+import sys
 import requests
 import threading
 import concurrent.futures
+import asyncio
+import gc
+
+
 from tqdm import tqdm
 
 
@@ -27,17 +32,21 @@ class InstanceList:
             self.network = json.load(f)
 
         with open(self.to_scan_path) as f: 
-            self.to_scan = json.load(f)['to_scan']
+            self.to_scan = json.load(f)
 
+        if 'to_scan' in self.to_scan: 
+            self.to_scan = self.to_scan['to_scan']
+        
         if len(self.to_scan) == 0: 
             self.to_scan = [('mastodon.social', 0)]
 
-        self.scanned = list(self.archive.keys())
-
+        
         self.max_depth = 2
-        self.CONNECTIONS = 80
+        self.CONNECTIONS = 100
         self.TIMEOUT = 3
-        self.i = 0 
+        self.SAVE_EVERY = 1000
+        self.successful_response = 0 
+        self.successful_peer_request = 0 
         self.lock = threading.Lock()
 
     def save_archive(self) -> None:
@@ -62,58 +71,69 @@ class InstanceList:
     def get_all_peers(self) -> None: 
         still_to_scan = len(self.to_scan)
         
-        list_of_peers = []
-        instance_info = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.CONNECTIONS) as executor:
-            while still_to_scan > 0: 
-                instance, depth = self.to_scan.pop(0)
-                # get the known peers of the instance
-                if instance not in self.archive or 'error' not in self.archive[instance]: 
-                    list_of_peers.append(executor.submit(self.get_instance_peers, instance))
-                    instance_info.append((depth, instance))
-                
-                still_to_scan -= 1
-                print('still to scan', still_to_scan, end= '\r')
-
-        # result_peers = [(peer.result(), depth, instance)  for peer, depth, instance in concurrent.futures.as_completed(list_of_peers) if peer.result() is not None ]
-        result_peers = []
-        for peer, (depth, instance) in zip(concurrent.futures.as_completed(list_of_peers), instance_info): 
-            if peer.result() is not None: 
-                # result_peers.append((peer.result(), depth, instance))
-                self.add_connection(peer.result(), depth, instance)
-
-        print('len peers list',  len(result_peers))
-
-    def deep_scan(self) -> None: 
-        """
-            with a BFS scan all instances up to self.max_depth
-        """ 
-        s = time.time()
-        still_to_scan = len(self.to_scan)
-        
         while still_to_scan > 0: 
+            list_of_peers = []
+            instance_info = []
+            step = still_to_scan
 
-            self.get_all_peers()
-            self.save_archive()
-            
-            futures = []
-
-            network = copy.deepcopy(self.network)
-            
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self.CONNECTIONS) as executor:
-                for instance in network: 
-                    for peer in network[instance]['peers']: 
-                        if peer not in self.scanned : 
-                            futures.append(executor.submit(self.scan_peer, peer, network[instance]['depth']+1) )
-
-                _ = concurrent.futures.as_completed(futures)
-
-            still_to_scan = len(self.to_scan)
             print('still to scan', still_to_scan)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.CONNECTIONS) as executor:
+                while still_to_scan > 0 and still_to_scan > step - 200: 
+                    instance, depth = self.to_scan.pop(0)
+                    # get the known peers of the instance
+                    if instance not in self.archive or 'error' not in self.archive[instance]: 
+                        list_of_peers.append(executor.submit(self.get_instance_peers, instance))
+                        instance_info.append((depth, instance))
+                    
+                    still_to_scan -= 1
 
-                
-        self.save_archive()
-        print('finished in', round(time.time() - s, 2), 'seconds - ', self.i, 'instances retrieved')
+                    if still_to_scan % 2000 == 0: 
+                        self.save_archive()
+
+
+                for peer, (depth, instance) in zip(concurrent.futures.as_completed(list_of_peers), instance_info): 
+                    # print(peer)
+                    if peer.result() is not None: 
+                        self.add_connection(peer.result(), depth, instance)
+
+                    list_of_peers.remove(peer)
+
+
+            
+                del list_of_peers[:]
+                del instance_info[:]
+                del list_of_peers
+                del instance_info
+
+            
+
+        print('len network', len(self.network))
+
+
+
+    def chunks(self, lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
+
+
+    def scan_known_instances(self) -> None: 
+        network = copy.deepcopy(self.network)
+        # scanning = 0
+        for instance in network: 
+            for peers in self.chunks(network[instance]['peers'], 200): 
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=self.CONNECTIONS) as executor:
+                    for peer in peers: 
+                        if peer not in self.archive : 
+                            # scanning += 1
+                            executor.submit(self.scan_peer, peer, network[instance]['depth']+1)
+
+
+
+
+
+
 
 
     def scan_peer(self, peer, depth):
@@ -121,8 +141,6 @@ class InstanceList:
             scan individual instance and save information in the archive
         """ 
         try:
-            with self.lock:
-                self.scanned.append(peer)    
 
             # print(f"Scanning peer: {peer} ")
             response = self.get_instance_info(peer)
@@ -142,24 +160,23 @@ class InstanceList:
             uri = data.get('uri')
             if isinstance(uri, str): 
                 with self.lock: 
-                    self.i += 1 
-                    if self.i % 100 == 0: 
+                    self.successful_response += 1 
+                    if self.successful_response % self.SAVE_EVERY == 0: 
                         print('saving')
                         try: 
                             self.save_archive()
                         except Exception as e: 
                             print(e)
                     
-                    
                     self.archive[peer] = data
 
-                print('instances found', self.i, 'for', len(self.scanned), 'scanned',  end='\r')
+                print('instances found', self.successful_response, 'for', len(self.archive), 'scanned')
 
                 # save instance to archive    
                 # don't scan anymore when max_depth is exceeded
                 if  depth <= self.max_depth: 
                     with self.lock: 
-                        print('adding', peer)
+                        # print('adding', peer)
                         self.to_scan.append((peer, depth))
         
         except requests.exceptions.RequestException as err:
@@ -173,8 +190,8 @@ class InstanceList:
             params = {'limit': 100}
             r = requests.get('https://' + instance_name + '/api/v1/instance/peers', params=params, timeout=3)
             res = eval(r.content)
-        except (SyntaxError, requests.exceptions.RequestException) as err : 
-            # print('peers request', str(err))
+        except Exception as e : 
+            # print('peer error', e)
             return None
 
         return res
@@ -184,15 +201,40 @@ class InstanceList:
         return r
     
 
+    def main(self) -> None: 
+        """
+            with a BFS scan all instances up to self.max_depth
+        """ 
+        s = time.time()
+        
+        still_to_scan = len(self.to_scan)
+
+        
+        while still_to_scan > 0: 
+
+            # self.get_all_peers()
+            self.get_all_peers()
+            self.save_archive()
+            
+            self.scan_known_instances()
+            self.save_archive()
+
+            still_to_scan = len(self.to_scan)
+                
+        self.save_archive()
+        print('finished in', round(time.time() - s, 2), 'seconds - ', self.successful_response, 'instances retrieved')
+
+
 
 if __name__ == "__main__": 
     instancesList = InstanceList()    
-    instancesList.deep_scan()   
+    instancesList.main()   
     # print(len(instancesList.archive.keys()))
 
     # to_scan = {'to_scan': [ (instance, 1) for instance in instancesList.network['mastodon.social']['peers']]}
     # with open(instancesList.to_scan_path, 'w') as f: 
     #     json.dump(to_scan, f, indent=4)
     
+
 
 
