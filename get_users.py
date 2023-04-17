@@ -11,11 +11,8 @@ from tqdm import tqdm
 import re
 
 
-
-# TODO split in different files 
-# paralelize id requests !!!
-# how to test the different parts
-# use login
+# può essere reso ancora più veloce se 
+# 38000 in 25 minuti => 65 ore
 
 class UserList:
     def __init__(self) -> None:
@@ -87,77 +84,77 @@ class UserList:
             return None
         
 
-    async def gather_with_concurrency(self, n, *tasks):
-        semaphore = asyncio.Semaphore(n)
+    # async def gather_with_concurrency(self, n, *tasks):
+    #     semaphore = asyncio.Semaphore(n)
 
-        async def sem_task(task):
-            async with semaphore:
-                return await task
+    #     async def sem_task(task):
+    #         async with semaphore:
+    #             return await task
 
-        return await asyncio.gather(*(sem_task(task) for task in tasks))
-
-
-    async def get_async(self, url, session, results):
-        async with session.get(url) as response:
-            i = url.split('/')[-1]
-            obj = await response.text()
-            results[i] = obj
+    #     return await asyncio.gather(*(sem_task(task) for task in tasks))
 
 
-    async def main(self, users):
-        conn = aiohttp.TCPConnector(limit=None, ttl_dns_cache=300)
-        session = aiohttp.ClientSession(connector=conn)
-        results = {}
+    # async def get_async(self, url, session, results):
+    #     async with session.get(url) as response:
+    #         i = url.split('/')[-1]
+    #         obj = await response.text()
+    #         results[i] = obj
 
-        instances = [u.get_instance_from_url(user_url) for user_url in users]
-        usernames = [u.get_username_from_url(user_url) for user_url in users]
 
-        urls = []
-        for instance, username in zip(instances, usernames): 
-            if instance is not None and username is not None: 
+    # async def main(self, users):
+    #     conn = aiohttp.TCPConnector(limit=None, ttl_dns_cache=300)
+    #     session = aiohttp.ClientSession(connector=conn)
+    #     results = {}
 
-                urls.append(instance + '/api/v2/search/?q=' + username)
+    #     instances = [u.get_instance_from_url(user_url) for user_url in users]
+    #     usernames = [u.get_username_from_url(user_url) for user_url in users]
 
-        conc_req = 40
-        now = time.time()
-        await self.gather_with_concurrency(conc_req, *[self.get_async(i, session, results) for i in urls])
-        time_taken = time.time() - now
+    #     urls = []
+    #     for instance, username in zip(instances, usernames): 
+    #         if instance is not None and username is not None: 
 
-        # print(time_taken)
-        await session.close()
+    #             urls.append(instance + '/api/v2/search/?q=' + username)
 
-        self.results =   results
+    #     conc_req = 40
+    #     now = time.time()
+    #     await self.gather_with_concurrency(conc_req, *[self.get_async(i, session, results) for i in urls])
+    #     time_taken = time.time() - now
+
+    #     # print(time_taken)
+    #     await session.close()
+
+    #     self.results =   results
 
 
     
 
     def get_id_from_url(self, user_url: str) -> str:
 
-        loop = asyncio.get_event_loop()
+        # loop = asyncio.get_event_loop()
 
-        done, _ = loop.run_until_complete(asyncio.wait(self.main()))
-        for fut in done:
-            print("return value is {}".format(fut.result()))
-        loop.close()
+        # done, _ = loop.run_until_complete(asyncio.wait(self.main()))
+        # for fut in done:
+        #     print("return value is {}".format(fut.result()))
+        # loop.close()
 
-        # instance = self.get_instance_from_url(user_url)
-        # username = self.get_username_from_url(user_url)
+        instance = self.get_instance_from_url(user_url)
+        username = self.get_username_from_url(user_url)
 
-        # if instance is None or username is None: 
-        #     return None
+        if instance is None or username is None: 
+            return None
 
-        # try:
-        #     url = instance + '/api/v2/search/?q=' + username
-        #     r = requests.get(url, timeout=self.TIMEOUT)  # TODO I don't check if I have made too many requests
-        #     with self.lock:
-        #         if instance in self.to_scan:
-        #             self.to_scan[instance]['time_query'].append(time.time())
-        #     id = r.json()['accounts'][0]['id']
-        # except Exception as e: 
-        #     print(e)
-        #     return None
+        try:
+            url = instance + '/api/v2/search/?q=' + username
+            r = requests.get(url, timeout=self.TIMEOUT)  # TODO I don't check if I have made too many requests
+            with self.lock:
+                if instance in self.to_scan:
+                    self.to_scan[instance]['time_query'].append(time.time())
+            id = r.json()['accounts'][0]['id']
+        except Exception as e: 
+            # print(e)
+            return None
         
-        # return id
+        return id
 
     def get_followers_following_urls(self, instance_name: str, account_id: str) -> dict[str, str]:
 
@@ -351,7 +348,7 @@ class UserList:
 
 if __name__ == "__main__":
     u = UserList()
-    u.reset_data_structures()
+    # u.reset_data_structures()
     u.query_all()
 
     # users = ["https://mastodon.social/@pizzaghost",

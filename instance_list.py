@@ -17,6 +17,8 @@ import gc
 
 from tqdm import tqdm
 
+# 2000 trovate attive in 40 min => mastodon dice 12000 attive 40*6 240 = 4 ore
+
 
 
 class InstanceList: 
@@ -42,7 +44,7 @@ class InstanceList:
 
         
         self.max_depth = 2
-        self.CONNECTIONS = 100
+        self.MAX_CONNECTIONS = 100
         self.TIMEOUT = 3
         self.SAVE_EVERY = 1000
         self.successful_response = 0 
@@ -77,7 +79,7 @@ class InstanceList:
             step = still_to_scan
 
             print('still to scan', still_to_scan)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self.CONNECTIONS) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_CONNECTIONS) as executor:
                 while still_to_scan > 0 and still_to_scan > step - 200: 
                     instance, depth = self.to_scan.pop(0)
                     # get the known peers of the instance
@@ -113,26 +115,25 @@ class InstanceList:
 
     def chunks(self, lst, n):
         """Yield successive n-sized chunks from lst."""
-        for i in range(0, len(lst), n):
-            yield lst[i:i + n]
+        try: 
+            for i in range(0, len(lst), n):
+                yield lst[i:i + n]
+        except TypeError as tp: 
+            return []
 
 
     def scan_known_instances(self) -> None: 
         network = copy.deepcopy(self.network)
         # scanning = 0
         for instance in network: 
+            print(instance)
             for peers in self.chunks(network[instance]['peers'], 200): 
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=self.CONNECTIONS) as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=self.MAX_CONNECTIONS) as executor:
                     for peer in peers: 
                         if peer not in self.archive : 
                             # scanning += 1
                             executor.submit(self.scan_peer, peer, network[instance]['depth']+1)
-
-
-
-
-
 
 
 
