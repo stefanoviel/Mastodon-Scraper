@@ -35,6 +35,15 @@ class ManageDB():
     def instance_has_error(self, instance_id: str) -> bool: 
         # self.archive.find_one({ "_id": instance_id }) 
         return "error" in self.archive.find_one({"_id": instance_id})
+
+    def add_instance_to_network(self, instance_name, peers, depth ) -> None : 
+        if not self.is_in_network(instance_name) and type(peers) == list: # check if already presesent to not waste time inserting
+            post = {
+                "_id" : instance_name, 
+                "peers" : peers, 
+                "depth" : depth
+            }
+            self.network.insert_one(post)
     
     def add_instances_to_network(self, instances : list[dict]) -> None: 
         self.network.insert_many(instances)
@@ -61,7 +70,7 @@ class ManageDB():
     def init_to_test(self): 
         manageData = ManageData()
         to_scan_list = [ (instance, 1) for instance in manageData.network['mastodon.social']['peers']]
-        self.to_scan_list = to_scan_list[:2000]
+        self.to_scan_list = to_scan_list[:10000]
 
     def reset_collections(self): 
         self.archive.drop()

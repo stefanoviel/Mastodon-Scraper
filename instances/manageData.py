@@ -9,8 +9,8 @@ class ManageData:
         logging.basicConfig(level=logging.INFO)
 
         self.instances_path = 'data/instances/instances.json'
-        self.instances_network_path = 'data/instances/instances_network.json'
-        self.to_scan_path = 'data/instances/instances_to_scan.json'
+        self.instances_network_path = 'data/instances/network.json'
+        self.to_scan_path = 'data/instances/to_scan.json'
 
         with open(self.instances_path) as f: 
             self.archive = json.load(f)
