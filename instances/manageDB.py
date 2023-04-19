@@ -8,10 +8,13 @@
 # recreate what manageDat was doing but with mongodb
 from manageData import ManageData
 from pymongo import MongoClient
+import logging
 
 class ManageDB(): 
     def __init__(self) -> None:
-    
+        self.logger = logging.getLogger('my_logger')
+        self.logger.setLevel(logging.CRITICAL)
+
         self.client = MongoClient('localhost', 27017)
 
         self.db = self.client["users"]
