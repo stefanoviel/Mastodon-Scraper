@@ -8,6 +8,7 @@
 # recreate what manageDat was doing but with mongodb
 from manageData import ManageData
 from pymongo import MongoClient
+from pymongo import DeleteOne
 import logging
 
 class ManageDB(): 
@@ -22,11 +23,12 @@ class ManageDB():
         self.network = self.db["network"]
         self.to_scan = self.db["to_scan"]
 
-        if self.to_scan.count_documents({'_id': 'to_scan'}) == 1: 
-            self.to_scan_list = self.to_scan.find_one({'_id': 'to_scan'})["to_scan"]
-        elif self.to_scan.count_documents({'_id': 'to_scan'}) == 0: 
-            self.to_scan.insert_one({'_id': 'to_scan', 'to_scan' : []})
-            self.to_scan_list = [('mastodon.social', 0)]
+        # TODO: I think json should be used as a queue
+        # if self.to_scan.count_documents({'_id': 'to_scan'}) == 1: 
+        #     self.to_scan_list = self.to_scan.find_one({'_id': 'to_scan'})["to_scan"]
+        # elif self.to_scan.count_documents({'_id': 'to_scan'}) == 0: 
+        #     self.to_scan.insert_one({'_id': 'to_scan', 'to_scan' : []})
+        #     self.to_scan_list = [('mastodon.social', 0)]
 
 
     def is_in_archive(self, instance_id: str) -> bool: 
@@ -52,7 +54,14 @@ class ManageDB():
         self.network.insert_many(instances)
 
     def get_next_instance_to_scan(self): 
-        return self.to_scan_list.pop(0)
+        res = db.archive.find_one({})
+        self.to_scan.delete_one({"_id" : res["_id"]}) 
+        return res
+    
+
+    def add_to_scan(self, instance, depth): 
+        self.to_scan.insert_one({"_id": instance, "depth": depth})
+
     
     def update_to_scan(self, to_scan): 
         self.to_scan_list = to_scan
@@ -72,8 +81,12 @@ class ManageDB():
 
     def init_to_test(self): 
         manageData = ManageData()
-        to_scan_list = [ (instance, 1) for instance in manageData.network['mastodon.social']['peers']]
-        self.to_scan_list = to_scan_list[:10000]
+        to_insert = []
+        for instance in manageData.network['mastodon.social']['peers']: 
+            to_insert.append({"_id": instance, "depth" : 1})
+
+        self.to_scan.insert_many(to_insert)
+        
 
     def reset_collections(self): 
         self.archive.drop()
@@ -87,7 +100,7 @@ class ManageDB():
 
 if "__main__" == __name__: 
     db = ManageDB()
-    # db.reset_collections()
+    db.reset_collections()
 
     # post1 = {"_id" : '1', "name" : "ste", "error" : 33}
     # post2 = {"_id" : '2', "name" : "ste", "error" : 33}
@@ -96,13 +109,23 @@ if "__main__" == __name__:
 
     # db.archive.insert_many([post1, post2, post3, post4])
 
+    # res = db.archive.find_one({})
+    # db.archive.delete_one({"_id" : res["_id"]}) 
+    # for d in db.archive.find(): 
+    #     print(d)
+
     # for post in db.archive.find(): 
     #     print(post)
 
     # print(db.has_error('3'))
 
-    db.update_to_scan([('mastodon.social', 0)])
-    print(db.to_scan.find_one({'_id': 'to_scan'}))
+    # db.update_to_scan([('mastodon.social', 0)])
+    # print(db.to_scan.find_one({'_id': 'to_scan'}))
+
+    db.init_to_test()
+    for post in db.to_scan.find(): 
+        print(post)
+
 
 
 
