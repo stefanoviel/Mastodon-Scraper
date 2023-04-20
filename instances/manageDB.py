@@ -23,13 +23,6 @@ class ManageDB():
         self.network = self.db["network"]
         self.to_scan = self.db["to_scan"]
 
-        # TODO: I think json should be used as a queue
-        # if self.to_scan.count_documents({'_id': 'to_scan'}) == 1: 
-        #     self.to_scan_list = self.to_scan.find_one({'_id': 'to_scan'})["to_scan"]
-        # elif self.to_scan.count_documents({'_id': 'to_scan'}) == 0: 
-        #     self.to_scan.insert_one({'_id': 'to_scan', 'to_scan' : []})
-        #     self.to_scan_list = [('mastodon.social', 0)]
-
 
     def is_in_archive(self, instance_id: str) -> bool: 
         return self.archive.count_documents({ "_id": instance_id }) >= 1
@@ -38,10 +31,9 @@ class ManageDB():
         return self.network.count_documents({ "_id": instance_id }) >= 1
     
     def instance_has_error(self, instance_id: str) -> bool: 
-        # self.archive.find_one({ "_id": instance_id }) 
         return "error" in self.archive.find_one({"_id": instance_id})
 
-    def add_instance_to_network(self, instance_name, peers, depth ) -> None : 
+    def add_one_instance_to_network(self, instance_name, peers, depth ) -> None : 
         if not self.is_in_network(instance_name) and type(peers) == list: # check if already presesent to not waste time inserting
             post = {
                 "_id" : instance_name, 
@@ -50,34 +42,29 @@ class ManageDB():
             }
             self.network.insert_one(post)
     
-    def add_instances_to_network(self, instances : list[dict]) -> None: 
+    def add_many_instances_to_network(self, instances : list[dict]) -> None: 
         self.network.insert_many(instances)
 
     def get_next_instance_to_scan(self): 
-        res = db.archive.find_one({})
-        self.to_scan.delete_one({"_id" : res["_id"]}) 
-        return res
+        size = self.size_to_scan()
+        print(size)
+        while size > 0: 
+            res = self.to_scan.find_one({})
+            self.to_scan.delete_one({"_id" : res["_id"]}) 
+            size -= 1
+            yield res
     
-
     def add_to_scan(self, instance, depth): 
         self.to_scan.insert_one({"_id": instance, "depth": depth})
 
-    
-    def update_to_scan(self, to_scan): 
-        self.to_scan_list = to_scan
-        db.to_scan.update_one({
-        '_id': "to_scan"
-        },{
-        '$set': {
-            'to_scan': to_scan
-        }
-        }, upsert=False)
-
     def size_to_scan(self): 
-        return len(self.to_scan_list)
+        return self.to_scan.count_documents({})
     
-    def get_network_size(self): 
+    def size_network(self): 
         return self.network.count_documents({})
+    
+    def size_archive(self): 
+        return self.archive.count_documents({})
 
     def init_to_test(self): 
         manageData = ManageData()
@@ -93,10 +80,6 @@ class ManageDB():
         self.network.drop()
         self.to_scan.drop()
         
-
-
-# post = {"_id" : 4, "name" : "ste", "score" : 33}
-# collection.insert_one(post)
 
 if "__main__" == __name__: 
     db = ManageDB()
@@ -123,9 +106,8 @@ if "__main__" == __name__:
     # print(db.to_scan.find_one({'_id': 'to_scan'}))
 
     db.init_to_test()
-    for post in db.to_scan.find(): 
-        print(post)
-
+    for i in db.get_next_instance_to_scan(): 
+        print(i)
 
 
 
