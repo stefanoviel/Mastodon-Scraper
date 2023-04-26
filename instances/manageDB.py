@@ -41,6 +41,7 @@ class ManageDB():
                 "depth" : depth
             }
             self.network.insert_one(post)
+            del post
     
     def add_many_instances_to_network(self, instances : list[dict]) -> None: 
         self.network.insert_many(instances)
@@ -106,8 +107,8 @@ if "__main__" == __name__:
     # print(db.to_scan.find_one({'_id': 'to_scan'}))
 
     db.init_to_test()
-    for i in db.get_next_instance_to_scan(): 
-        print(i)
+    # for i in db.get_next_instance_to_scan(): 
+    #     print(i)
 
 
 

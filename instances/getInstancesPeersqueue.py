@@ -9,23 +9,29 @@ from queue import Queue
 from threading import Thread
 import gc
 import time
+import urllib3
 
-# problem is in the threadpool, aparently it queues too many threads all at once
-# this causes memory to accumulate. I don't really know why, but if executed syncrnously
-# it doesn't create problems, I want to implement a producer cosumer
+
+# the problem is in the request, if I run it without the request but everything else it doesn't go out of memory
+# it seems a problem at the core of request, or wathever package is used in python, even with other packages I still encounter the same problem
+# 
 
 
 class getInstancesPeers():
-    def __init__(self, manageDB, params) -> None:
-        self.logger = logging.getLogger('my_logger')
-        self.logger.setLevel(logging.INFO)
+    def __init__(self, manageDB: ManageDB, params) -> None:
+        requests.packages.urllib3.disable_warnings(
+            requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
-        self.manageDb = manageDB
-        self.queue = Queue()
+        self.logger = logging.getLogger('my_logger')
+        self.logger.setLevel(logging.DEBUG)
 
         self.MAX_CONNECTIONS = params.get('MAX_CONNECTIONS')
         self.TIMEOUT = params.get('TIMEOUT')
-        self.CHUNK_SIZE = 500
+
+        self.manageDB = manageDB
+        self.queue = Queue(maxsize=self.MAX_CONNECTIONS)
+
+        self.http = urllib3.PoolManager()
 
     def main(self):
         for i in range(self.MAX_CONNECTIONS):
@@ -33,38 +39,36 @@ class getInstancesPeers():
             t.daemon = True
             t.start()
 
-        for item in self.manageDb.get_next_instance_to_scan():
+        for num, item in enumerate(self.manageDB.get_next_instance_to_scan()):
+            self.logger.info(num)
             self.queue.put(item)
 
         self.queue.join()
 
-    async def get_request(self, url):
-        try:
-            params = {'limit': 100}
-            session_timeout = aiohttp.ClientTimeout(
-                total=None, sock_connect=self.TIMEOUT, sock_read=self.TIMEOUT)
-            async with aiohttp.ClientSession(timeout=session_timeout) as session:
-                async with session.get(url, params=params) as resp:
-                    return (await resp.text())
-
-        except Exception as e:
+    def get_request(self, url):
+        try: 
+            r = requests.get(url, timeout=self.TIMEOUT)
+            return eval(r.content)
+        except (requests.exceptions.ConnectionError, SyntaxError, requests.exceptions.ReadTimeout) as e: 
             self.logger.debug(e)
 
     def get_instances_peers(self):
+
+        results_list = []
         while True:
+
             item = self.queue.get()
-            instance_name = item["_id"]
-            depth = item["depth"]
+            instance_name = item.get("_id")
+            depth = item.get("depth")
+            res = self.get_request('https://' + instance_name + '/api/v1/instance/peers')
 
-            try:
-                res = asyncio.run(self.get_request(
-                    'https://' + instance_name + '/api/v1/instance/peers'))
-                self.manageDb.add_one_instance_to_network(
-                    instance_name, eval(res), depth)
-                self.logger.info("got results %s", instance_name)
 
-            except Exception as e:
-                self.logger.debug('peer error {0}'.format(e))
+            if res is not None: 
+                print(len(res)) 
+
+                self.manageDB.add_one_instance_to_network(instance_name, res, depth)
+                self.logger.info("got results %s queue len %d", instance_name, self.queue.qsize())
+
 
             self.queue.task_done()
 
@@ -75,6 +79,5 @@ if "__main__" == __name__:
     manageDB.init_to_test()
 
     getpeers = getInstancesPeers(
-        manageDB, {"MAX_CONNECTIONS": 50, "TIMEOUT": 3})
+        manageDB, {"MAX_CONNECTIONS": 1, "TIMEOUT": 3})
     getpeers.main()
-
