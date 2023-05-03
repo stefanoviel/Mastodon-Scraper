@@ -6,6 +6,9 @@
 # mongoDB
 
 # recreate what manageDat was doing but with mongodb
+
+
+# 66.3
 from manageData import ManageData
 from pymongo import MongoClient
 from pymongo import DeleteOne
@@ -51,9 +54,10 @@ class ManageDB():
         print(size)
         while size > 0: 
             res = self.to_scan.find_one({})
-            self.to_scan.delete_one({"_id" : res["_id"]}) 
             size -= 1
-            yield res
+            if res is not None: 
+                self.to_scan.delete_one({"_id" : res["_id"]}) 
+                yield res
     
     def add_to_scan(self, instance, depth): 
         self.to_scan.insert_one({"_id": instance, "depth": depth})
