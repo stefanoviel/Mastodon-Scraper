@@ -8,3 +8,27 @@ for all the non-dead repeat recursively
     scrape until you reach the stated number
 
 3) una strategia per tracciare i link che hanno utenti nei diversi server   
+
+
+
+
+to_get_info, to_get_peers both are queue with maxsize 
+
+archive, network
+
+get max depth
+if to_scan empty => add mastodon.social
+
+COROUTINE 1
+for s in to_get_info: 
+    get s info 
+    save into archive
+    add s to_get_peers
+
+COROUTINE 2
+for s in to_get_peers: 
+    get s peers
+    save peers in network
+    if depth +1 < max_depth 
+        put each peer in to_get_info (adjust depth)
+

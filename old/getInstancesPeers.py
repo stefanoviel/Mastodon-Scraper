@@ -1,4 +1,4 @@
-from manageDB import ManageDB
+from instances.manageDB import ManageDB
 import concurrent.futures
 import requests
 import random

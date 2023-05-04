@@ -9,7 +9,7 @@
 
 
 # 66.3
-from manageData import ManageData
+
 from pymongo import MongoClient
 from pymongo import DeleteOne
 import logging
@@ -35,9 +35,17 @@ class ManageDB():
     
     def instance_has_error(self, instance_id: str) -> bool: 
         return "error" in self.archive.find_one({"_id": instance_id})
+    
 
-    def add_one_instance_to_network(self, instance_name, peers, depth ) -> None : 
-        if not self.is_in_network(instance_name) and type(peers) == list: # check if already presesent to not waste time inserting
+    def insert_one_to_archive(self, instance_name, info): 
+        self.archive.insert_one({"_id" : instance_name, "info" : info})
+
+    def insert_many_to_archive(self, list_instances): 
+        posts = [{"_id" : info["uri"], "info" : info} for info in list_instances]
+        self.archive.insert_many(posts)
+
+    def insert_one_instance_to_network(self, instance_name, peers, depth ) -> None : 
+        if type(peers) == list: 
             post = {
                 "_id" : instance_name, 
                 "peers" : peers, 
@@ -46,7 +54,7 @@ class ManageDB():
             self.network.insert_one(post)
             del post
     
-    def add_many_instances_to_network(self, instances : list[dict]) -> None: 
+    def insert_many_instances_to_network(self, instances : list[dict]) -> None: 
         self.network.insert_many(instances)
 
     def get_next_instance_to_scan(self): 
@@ -72,11 +80,9 @@ class ManageDB():
         return self.archive.count_documents({})
 
     def init_to_test(self): 
-        manageData = ManageData()
-        to_insert = []
-        for instance in manageData.network['mastodon.social']['peers']: 
-            to_insert.append({"_id": instance, "depth" : 1})
 
+        mastodon_peers = open('data/peers.txt').read().splitlines()
+        to_insert = [{"_id": instance, "depth" : 1} for instance in mastodon_peers ]
         self.to_scan.insert_many(to_insert)
         
 
@@ -113,8 +119,6 @@ if "__main__" == __name__:
     db.init_to_test()
     # for i in db.get_next_instance_to_scan(): 
     #     print(i)
-
-
 
 
 
