@@ -12,6 +12,7 @@
 
 from pymongo import MongoClient
 from pymongo import DeleteOne
+import pymongo
 import logging
 
 class ManageDB(): 
@@ -38,7 +39,10 @@ class ManageDB():
     
 
     def insert_one_to_archive(self, instance_name, info): 
-        self.archive.insert_one({"_id" : instance_name, "info" : info})
+        try: 
+            self.archive.insert_one({"_id" : instance_name, "info" : info})
+        except pymongo.errors.DuplicateKeyError:
+            pass 
 
     def insert_many_to_archive(self, list_instances): 
         posts = [{"_id" : info["uri"], "info" : info} for info in list_instances]
@@ -51,7 +55,11 @@ class ManageDB():
                 "peers" : peers, 
                 "depth" : depth
             }
-            self.network.insert_one(post)
+            try: 
+                self.network.insert_one(post)
+            except pymongo.errors.DuplicateKeyError:
+                pass 
+
             del post
     
     def insert_many_instances_to_network(self, instances : list[dict]) -> None: 
@@ -89,7 +97,6 @@ class ManageDB():
     def reset_collections(self): 
         self.archive.drop()
         self.network.drop()
-        self.to_scan.drop()
         
 
 if "__main__" == __name__: 
