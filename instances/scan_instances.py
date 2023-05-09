@@ -24,11 +24,13 @@ class Instances:
             while not self.info_queue.empty():
                 elem = await self.info_queue.get()
                 f.write(str(elem[0]) + ',' + str(elem[1]) + '\n')
+                await self.info_queue.put(elem)
 
         with open('data/instances/get_peers_queue.txt', 'w') as f:
             while not self.peers_queue.empty():
                 elem = await self.peers_queue.get()
                 f.write(str(elem[0]) + ',' + str(elem[1]) + '\n')
+                self.query_peers.put(elem)
 
     async def load_queues(self):
         for elem in open('data/instances/get_info_queue.txt').read().splitlines():
@@ -46,7 +48,7 @@ class Instances:
             async with session.get(url, timeout=5) as response:
                 return await response.json(), depth
         except (SyntaxError, aiohttp.client_exceptions.ClientPayloadError, aiohttp.client_exceptions.ClientResponseError, aiohttp.client_exceptions.ContentTypeError, asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError, aiohttp.client_exceptions.TooManyRedirects, UnicodeError, ValueError) as e:
-            return {"error": e}, True
+            return {"uri": name, "error": str(e)}, True
 
     async def fetch_peers(self, name, session, depth):
         """Fetch function to get peers of instance"""
@@ -55,7 +57,7 @@ class Instances:
             async with session.get(url, timeout=5) as response:
                 return name, eval(await response.text()), depth
         except (SyntaxError, aiohttp.client_exceptions.ClientPayloadError, aiohttp.client_exceptions.ClientResponseError, aiohttp.client_exceptions.ContentTypeError, asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError, aiohttp.client_exceptions.TooManyRedirects, UnicodeError, ValueError) as e:
-            return name, {"error": e}, depth
+            return name, {"uri": name, "error": str(e)}, depth
 
     async def bound_fetch(self, fetching_fun, sem, url, session, depth):
         """Getter function with semaphore, to limit number of simultaneous requests"""
@@ -106,21 +108,20 @@ class Instances:
 
                     for name, peers, depth in results:
 
-                        if peers is not None and 'error' not in peers:
-                            self.manageDb.insert_one_instance_to_network(
-                                name, peers, depth)
+                        if peers is not None and 'error' not in peers and not self.manageDb.is_in_network(name):
+                            self.manageDb.insert_one_instance_to_network(name, peers, depth)
 
                             logging.info(
                                 'peers - adding to queue the peers of {}'.format(name))
                             for p in peers:
                                 # logging.debug('adding peer {} to info_queue if not in archive: {}'.format(p,self.manageDb.is_in_archive(p)))
-                                if not self.manageDb.is_in_archive(p):
+                                if not self.manageDb.is_in_archive(p): 
                                     await self.info_queue.put((p, int(depth) + 1))
 
                     results.clear()
                     gc.collect()
                     logging.debug('peers - done')
-                    # await self.save_queues()
+                    await self.save_queues()
 
     async def query_info(self, save_result_every_n):
         """Loop to continuosly query info of instances, it add the peers to the peers_queue"""
@@ -151,19 +152,17 @@ class Instances:
 
                 if i == save_every:
 
-                    save_every = min(save_result_every_n,
-                                     self.info_queue.qsize())
-                    logging.debug(
-                        'info - iterations {} {}'.format(save_result_every_n, self.info_queue.qsize()))
+                    save_every = min(save_result_every_n, self.info_queue.qsize())
+                    logging.debug('info - iterations {} {}'.format(save_result_every_n, self.info_queue.qsize()))
                     i = 0
 
                     results = await asyncio.gather(*tasks)
                     tasks.clear()
 
                     for res, depth in results:
-                        if res is not None and 'error' not in res and 'uri' in res:
-                            self.manageDb.insert_one_to_archive(
-                                res["uri"], res)
+                        # save even if there is an error
+                        if res is not None and 'uri' in res and not self.manageDb.is_in_archive(res["uri"]):    
+                            self.manageDb.insert_one_to_archive(res["uri"], res)
 
                             if depth < self.MAX_DEPTH:
                                 logging.debug(
@@ -175,7 +174,7 @@ class Instances:
                         self.info_queue.qsize(), self.peers_queue.qsize()))
                     results.clear()
                     gc.collect()
-                    # await self.save_queues()
+
 
     async def batch(self):
 

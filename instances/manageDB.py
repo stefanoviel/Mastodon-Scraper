@@ -101,31 +101,10 @@ class ManageDB():
 
 if "__main__" == __name__: 
     db = ManageDB()
-    db.reset_collections()
+    for i in db.archive.find([{'_id': 'mofu.one'}, {'_id': 'mastodon.social'}]): 
+        print('o')
 
-    # post1 = {"_id" : '1', "name" : "ste", "error" : 33}
-    # post2 = {"_id" : '2', "name" : "ste", "error" : 33}
-    # post3 = {"_id" : '3', "name" : "ste", "score" : 33}
-    # post4 = {"_id" : '4', "name" : "ste", "score" : 33}
-
-    # db.archive.insert_many([post1, post2, post3, post4])
-
-    # res = db.archive.find_one({})
-    # db.archive.delete_one({"_id" : res["_id"]}) 
-    # for d in db.archive.find(): 
-    #     print(d)
-
-    # for post in db.archive.find(): 
-    #     print(post)
-
-    # print(db.has_error('3'))
-
-    # db.update_to_scan([('mastodon.social', 0)])
-    # print(db.to_scan.find_one({'_id': 'to_scan'}))
-
-    db.init_to_test()
-    # for i in db.get_next_instance_to_scan(): 
-    #     print(i)
+    
 
 
 
