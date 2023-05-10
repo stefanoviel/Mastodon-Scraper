@@ -9,7 +9,7 @@ import idna
 
 class Instances:
 
-    def __init__(self) -> None:
+    def __init__(self, manageDB) -> None:
         self.manageDb = ManageDB()
         self.info_queue = None
         self.peers_queue = None
@@ -44,7 +44,7 @@ class Instances:
             await self.peers_queue.put((elem[0], elem[1]))
 
     async def fetch_info(self, name, session, depth):
-        """Fetch function to get info of instance"""
+        """Fetch info of instance"""
         try:
             url = 'https://{}/api/v1/instance'.format(name)
             async with session.get(url, timeout=5) as response:
@@ -53,11 +53,11 @@ class Instances:
             return {"uri": name, "error": str(e)}, True
 
     async def fetch_peers(self, name, session, depth):
-        """Fetch function to get peers of instance"""
+        """Fetch peers of instance"""
         try:
             url = 'https://{}/api/v1/instance/peers'.format(name)
             async with session.get(url, timeout=5) as response:
-                return name, eval(await response.text()), depth
+                return name, eval(await response.text()), depth  # TODO not the safest thing 
         except (SyntaxError, aiohttp.client_exceptions.ClientPayloadError, aiohttp.client_exceptions.ClientResponseError, aiohttp.client_exceptions.ContentTypeError, asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError, aiohttp.client_exceptions.TooManyRedirects, UnicodeError, ValueError) as e:
             return name, {"uri": name, "error": str(e)}, depth
 
@@ -68,9 +68,10 @@ class Instances:
 
     async def query_peers(self, save_result_every_n):
         """Loop to continuosly query peers, it add the peers to the info_queue"""
-        sem = asyncio.Semaphore(50)
 
-        connector = aiohttp.TCPConnector(force_close=True, limit=50)
+        sem = asyncio.Semaphore(50) 
+
+        connector = aiohttp.TCPConnector(force_close=True)
         async with aiohttp.ClientSession(connector=connector, trust_env=True) as session:
             tasks = []
 
@@ -95,8 +96,7 @@ class Instances:
                 logging.debug('peers - {} {}'.format(i, name))
 
                 if not self.manageDb.is_in_network(name):
-                    tasks.append(asyncio.create_task(self.bound_fetch(
-                        self.fetch_peers, sem, name, session, depth)))
+                    tasks.append(asyncio.create_task(self.bound_fetch(self.fetch_peers, sem, name, session, depth)))
 
                 if i == save_every:
                     logging.info('query executed with {}'.format(save_every))
@@ -130,7 +130,7 @@ class Instances:
 
         sem = asyncio.Semaphore(100)
 
-        connector = aiohttp.TCPConnector(force_close=True, limit=50)
+        connector = aiohttp.TCPConnector(force_close=True)
         async with aiohttp.ClientSession(connector=connector, trust_env=True) as session:
             tasks = []
 

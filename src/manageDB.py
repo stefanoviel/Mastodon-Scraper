@@ -16,17 +16,15 @@ import pymongo
 import logging
 
 class ManageDB(): 
-    def __init__(self) -> None:
+    def __init__(self, db_name: str) -> None:
         self.logger = logging.getLogger('my_logger')
         self.logger.setLevel(logging.CRITICAL)
 
         self.client = MongoClient('localhost', 27017)
 
-        self.db = self.client["users"]
+        self.db = self.client[db_name]
         self.archive = self.db["archive"]
         self.network = self.db["network"]
-        self.to_scan = self.db["to_scan"]
-
 
     def is_in_archive(self, instance_id: str) -> bool: 
         return self.archive.count_documents({ "_id": instance_id }) >= 1
@@ -38,15 +36,16 @@ class ManageDB():
         return "error" in self.archive.find_one({"_id": instance_id})
     
 
-    def insert_one_to_archive(self, instance_name, info): 
+    def insert_one_to_archive(self, id, insfo): 
         try: 
-            self.archive.insert_one({"_id" : instance_name, "info" : info})
+            self.archive.insert_one({"_id" : id, "info" : info})
         except pymongo.errors.DuplicateKeyError:
             pass 
 
-    def insert_many_to_archive(self, list_instances): 
-        posts = [{"_id" : info["uri"], "info" : info} for info in list_instances]
+    def insert_many_to_archive(self, ids, list_info): 
+        posts = [{"_id" : id, "info" : info} for id, info in zip(ids, list_info)]
         self.archive.insert_many(posts)
+
 
     def insert_one_instance_to_network(self, instance_name, peers, depth ) -> None : 
         if type(peers) == list: 
@@ -61,25 +60,18 @@ class ManageDB():
                 pass 
 
             del post
+
+    def insert_user_followers(self, user_id, followers): 
+        user = self.archive.find_one({"_id": user_id})
+        if user is None: 
+            user = {"_id": user_id, "followers" : followers, "following" : []}
+        else: 
+            user["followers"] = user["followers"] + followers
+        
+        self.archive.insert_one(user)
     
     def insert_many_instances_to_network(self, instances : list[dict]) -> None: 
         self.network.insert_many(instances)
-
-    def get_next_instance_to_scan(self): 
-        size = self.size_to_scan()
-        print(size)
-        while size > 0: 
-            res = self.to_scan.find_one({})
-            size -= 1
-            if res is not None: 
-                self.to_scan.delete_one({"_id" : res["_id"]}) 
-                yield res
-    
-    def add_to_scan(self, instance, depth): 
-        self.to_scan.insert_one({"_id": instance, "depth": depth})
-
-    def size_to_scan(self): 
-        return self.to_scan.count_documents({})
     
     def size_network(self): 
         return self.network.count_documents({})

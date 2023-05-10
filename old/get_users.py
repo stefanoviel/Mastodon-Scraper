@@ -84,46 +84,7 @@ class UserList:
             return None
         
 
-    # async def gather_with_concurrency(self, n, *tasks):
-    #     semaphore = asyncio.Semaphore(n)
-
-    #     async def sem_task(task):
-    #         async with semaphore:
-    #             return await task
-
-    #     return await asyncio.gather(*(sem_task(task) for task in tasks))
-
-
-    # async def get_async(self, url, session, results):
-    #     async with session.get(url) as response:
-    #         i = url.split('/')[-1]
-    #         obj = await response.text()
-    #         results[i] = obj
-
-
-    # async def main(self, users):
-    #     conn = aiohttp.TCPConnector(limit=None, ttl_dns_cache=300)
-    #     session = aiohttp.ClientSession(connector=conn)
-    #     results = {}
-
-    #     instances = [u.get_instance_from_url(user_url) for user_url in users]
-    #     usernames = [u.get_username_from_url(user_url) for user_url in users]
-
-    #     urls = []
-    #     for instance, username in zip(instances, usernames): 
-    #         if instance is not None and username is not None: 
-
-    #             urls.append(instance + '/api/v2/search/?q=' + username)
-
-    #     conc_req = 40
-    #     now = time.time()
-    #     await self.gather_with_concurrency(conc_req, *[self.get_async(i, session, results) for i in urls])
-    #     time_taken = time.time() - now
-
-    #     # print(time_taken)
-    #     await session.close()
-
-    #     self.results =   results
+    
 
 
     
