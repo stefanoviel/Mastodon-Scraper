@@ -20,24 +20,26 @@ class Instances:
 
     async def save_queues(self):
         logging.debug('saving queue')
-        with open('data/instances/get_info_queue.txt', 'w') as f:
-            while not self.info_queue.empty():
+        tot = self.info_queue.qsize()
+        with open('data/instances/info_queue.txt', 'w') as f:
+            for _ in range(tot): 
                 elem = await self.info_queue.get()
                 f.write(str(elem[0]) + ',' + str(elem[1]) + '\n')
                 await self.info_queue.put(elem)
 
-        with open('data/instances/get_peers_queue.txt', 'w') as f:
-            while not self.peers_queue.empty():
+        tot = self.peers_queue.qsize()
+        with open('data/instances/peers_queue.txt', 'w') as f:
+            for _ in range(tot): 
                 elem = await self.peers_queue.get()
                 f.write(str(elem[0]) + ',' + str(elem[1]) + '\n')
-                self.query_peers.put(elem)
+                await self.peers_queue.put(elem)
 
     async def load_queues(self):
-        for elem in open('data/instances/get_info_queue.txt').read().splitlines():
+        for elem in open('data/instances/info_queue.txt').read().splitlines():
             elem = elem.split(',')
             await self.info_queue.put((elem[0], elem[1]))
 
-        for elem in open('data/instances/get_peers_queue.txt').read().splitlines():
+        for elem in open('data/instances/peers_queue.txt').read().splitlines():
             elem = elem.split(',')
             await self.peers_queue.put((elem[0], elem[1]))
 
@@ -164,9 +166,8 @@ class Instances:
                         if res is not None and 'uri' in res and not self.manageDb.is_in_archive(res["uri"]):    
                             self.manageDb.insert_one_to_archive(res["uri"], res)
 
-                            if depth < self.MAX_DEPTH:
-                                logging.debug(
-                                    'info - adding to peers_queue {} {}'.format(res['uri'], depth))
+                            if depth < self.MAX_DEPTH and 'error' not in res:
+                                logging.debug('info - adding to peers_queue {} {}'.format(res['uri'], depth))
                                 # add instances get_peers queue
                                 await self.peers_queue.put((res["uri"], depth))
 
@@ -206,3 +207,7 @@ if __name__ == "__main__":
     instances = Instances()
     instances.manageDb.reset_collections()
     instances.main()
+
+
+
+
