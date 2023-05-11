@@ -36,15 +36,15 @@ class ManageDB():
         return "error" in self.archive.find_one({"_id": instance_id})
     
 
-    def insert_one_to_archive(self, id, insfo): 
+    def insert_one_to_archive(self, id, info): 
         try: 
             self.archive.insert_one({"_id" : id, "info" : info})
         except pymongo.errors.DuplicateKeyError:
             pass 
 
-    def insert_many_to_archive(self, ids, list_info): 
-        posts = [{"_id" : id, "info" : info} for id, info in zip(ids, list_info)]
-        self.archive.insert_many(posts)
+    def insert_many_to_archive(self, elems): 
+
+        self.archive.insert_many(elems)
 
 
     def insert_one_instance_to_network(self, instance_name, peers, depth ) -> None : 
@@ -92,10 +92,14 @@ class ManageDB():
         
 
 if "__main__" == __name__: 
-    db = ManageDB()
-    for i in db.archive.find([{'_id': 'mofu.one'}, {'_id': 'mastodon.social'}]): 
-        print('o')
+    db = ManageDB('users')
+    # for i in db.archive.find([{'_id': 'mofu.one'}, {'_id': 'mastodon.social'}]): 
+        # print('o')
 
+
+    for i in db.archive.find({}): 
+        if 'mastodon.social' in i['_id']: 
+            print("'" + i['_id'].replace('mastodon.social/', '') + "',")
     
 
 

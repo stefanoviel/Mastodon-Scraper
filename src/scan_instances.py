@@ -9,8 +9,8 @@ import idna
 
 class Instances:
 
-    def __init__(self, manageDB) -> None:
-        self.manageDb = ManageDB()
+    def __init__(self) -> None:
+        self.manageDb = ManageDB('instances')
         self.info_queue = None
         self.peers_queue = None
 
@@ -50,14 +50,14 @@ class Instances:
             async with session.get(url, timeout=5) as response:
                 return await response.json(), depth
         except (SyntaxError, aiohttp.client_exceptions.ClientPayloadError, aiohttp.client_exceptions.ClientResponseError, aiohttp.client_exceptions.ContentTypeError, asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError, aiohttp.client_exceptions.TooManyRedirects, UnicodeError, ValueError) as e:
-            return {"uri": name, "error": str(e)}, True
+            return {"uri": name, "error": str(e)}, depth
 
     async def fetch_peers(self, name, session, depth):
         """Fetch peers of instance"""
         try:
             url = 'https://{}/api/v1/instance/peers'.format(name)
             async with session.get(url, timeout=5) as response:
-                return name, eval(await response.text()), depth  # TODO not the safest thing 
+                return name, eval(await response.text()), depth  # TODO not the safest thing maybe enough to call response.json() ??? 
         except (SyntaxError, aiohttp.client_exceptions.ClientPayloadError, aiohttp.client_exceptions.ClientResponseError, aiohttp.client_exceptions.ContentTypeError, asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError, aiohttp.client_exceptions.TooManyRedirects, UnicodeError, ValueError) as e:
             return name, {"uri": name, "error": str(e)}, depth
 
@@ -67,11 +67,13 @@ class Instances:
             return await fetching_fun(url, session, depth)
 
     async def query_peers(self, save_result_every_n):
+        # TODO: no way the peers of mastodon social which answer are only 280
+
         """Loop to continuosly query peers, it add the peers to the info_queue"""
 
         sem = asyncio.Semaphore(50) 
 
-        connector = aiohttp.TCPConnector(force_close=True)
+        connector = aiohttp.TCPConnector(force_close=True, limit = 50)
         async with aiohttp.ClientSession(connector=connector, trust_env=True) as session:
             tasks = []
 
@@ -202,10 +204,14 @@ class Instances:
         except TypeError as tp:
             return []
 
+    def reset_queue(self): 
+        open('data/instances/peers_queue.txt', 'w').close()
+        open('data/instances/info_queue.txt', 'w').close()
 
 if __name__ == "__main__":
     instances = Instances()
     instances.manageDb.reset_collections()
+    instances.reset_queue()
     instances.main()
 
 

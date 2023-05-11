@@ -82,10 +82,6 @@ class UserList:
             return username.group(1)
         else:
             return None
-        
-
-    
-
 
     
 
