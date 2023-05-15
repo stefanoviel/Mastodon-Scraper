@@ -85,17 +85,22 @@ class ManageDB():
     def reset_collections(self): 
         self.archive.drop()
         self.network.drop()
-        
+
 
 if "__main__" == __name__: 
-    db = ManageDB('test')
+    # db = ManageDB('test')
     # for i in db.archive.find([{'_id': 'mofu.one'}, {'_id': 'mastodon.social'}]): 
         # print('o')
 
 
-    for i in db.archive.find({}): 
-        print(i['_id'])
+    # for i in db.archive.find({}): 
+    #     print(i['_id'])
     
+    # db.insert_one_to_archive('aa', {'aas': 33})
+
+    print('tutto ok')
+
+    # db.reset_collections()
 
 
 
