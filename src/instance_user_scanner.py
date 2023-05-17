@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import logging
+
 from src.manageDB import ManageDB
 
 class InstanceScanner: 
@@ -12,6 +13,7 @@ class InstanceScanner:
         self.follower_queue = asyncio.Queue()
         self.following_queue = asyncio.Queue()
         self.manageDB = manageDB
+        self.done = False
 
         self.request_every_five_min = request_every_five
         
@@ -75,7 +77,7 @@ class InstanceScanner:
         self.manageDB.insert_many_to_archive(posts)
 
     async def request_ids(self, tasks: list, session: aiohttp.ClientSession, n_request:int) -> int: 
-        """Gets id of the users from the id queue, add saves corresponding urls to followers and following queue"""
+        """Gets id of the users' name from the id queue, add saves corresponding urls to followers and following queue"""
         for completed_requests in range(n_request): 
             if not self.id_queue.empty(): 
                 name = await self.id_queue.get()
@@ -95,19 +97,20 @@ class InstanceScanner:
             if not self.follower_queue.empty(): 
                 url = await self.follower_queue.get()
                 tasks.append(asyncio.create_task(self.get_following_followers(session, url)))
+                n_request -= 1
             else: 
-                n_request += 1 # one more query
                 followers_request_completed = True
 
             if not self.following_queue.empty(): 
                 url = await self.following_queue.get()
                 tasks.append(asyncio.create_task(self.get_following_followers(session, url)))
+                n_request -= 1
             else: 
-                n_request += 1
                 if followers_request_completed: 
                     break
+        
+        return n_request
 
-            n_request -= 2
 
 
     async def main(self): 
@@ -122,6 +125,8 @@ class InstanceScanner:
                 await asyncio.gather(*tasks)
 
                 await asyncio.sleep(310)
+
+            self.done = True
 
 
 if __name__ == "__main__": 
