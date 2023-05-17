@@ -1,4 +1,5 @@
 import asyncio
+import math
 import aiohttp
 import logging
 
@@ -17,7 +18,7 @@ class InstanceScanner:
 
         self.request_every_five_min = request_every_five
         
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.DEBUG)
 
     async def add_id_following_follower_queue(self, user_id): 
         await self.follower_queue.put('https://{}/api/v1/accounts/{}/followers/'.format(self.instance_name, user_id))
@@ -27,12 +28,16 @@ class InstanceScanner:
     async def get_id_from_url(self, session, username) -> None:
         """get id of users from username, put them in following follower queue and save user info"""
         url = 'https://{}/api/v2/search/?q={}'.format(self.instance_name, username) 
+        
+        try: 
+            async with session.get(url, timeout=5) as response:
+                res = await response.json()
 
-        async with session.get(url, timeout=5) as response:
-            res = await response.json()
-        if len(res['accounts']) > 0: 
-            await self.add_id_following_follower_queue(res['accounts'][0]['id'])
-            await self.save_users([res['accounts'][0]])
+            if 'accounts' in res and len(res['accounts']) > 0 : 
+                await self.add_id_following_follower_queue(res['accounts'][0]['id'])
+                self.save_users([res['accounts'][0]])
+        except (asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ContentTypeError, aiohttp.client_exceptions.ClientConnectorCertificateError) as e: 
+            logging.debug('TIMEOUT')
 
 
     async def get_following_followers(self, session: aiohttp.ClientSession, url: str) -> None:
@@ -53,7 +58,7 @@ class InstanceScanner:
                         await self.following_queue.put(new_url)
 
             if len(res) > 0: 
-                await self.save_users(res)
+                self.save_users(res)
                 await self.sort_new_users(res)
 
         except asyncio.exceptions.TimeoutError: 
@@ -67,14 +72,33 @@ class InstanceScanner:
             else: 
                 await self.sort_queue.put(user['url'])
 
-    async def save_users(self, user_list:list[dict]): 
+    def save_users(self, user_list:list[dict]): 
+        # TODO finish
         posts = []
         for r in user_list: 
             r["_id"] = r["url"].replace("https://", '')
+            r['followers'] = []
+            r['following'] = []
             if not self.manageDB.is_in_archive(r['_id']): 
                 posts.append(r)
 
-        self.manageDB.insert_many_to_archive(posts)
+        if len(posts) > 0: 
+            self.manageDB.insert_many_to_archive(posts)
+
+    def save_network(self, user_list:list[dict], url:str): 
+        # TODO efficient way to save network
+        id = url.replace("https://", '')
+        user = self.manageDB.get_from_archive(id)
+        
+        if user: 
+            if 'follower' in url: 
+                user['followers'].extend(user_list)
+            elif 'following' in url: 
+                user['following'].extend(user_list)
+
+        self.manageDB.update_archive(user)
+            
+
 
     async def request_ids(self, tasks: list, session: aiohttp.ClientSession, n_request:int) -> int: 
         """Gets id of the users' name from the id queue, add saves corresponding urls to followers and following queue"""
@@ -85,7 +109,7 @@ class InstanceScanner:
             else: 
                 break
 
-        return round((self.request_every_five_min - completed_requests)/2)  # use remaining requests for followers and following
+        return math.floor((self.request_every_five_min - completed_requests)/2)  # use remaining requests for followers and following
 
 
 
@@ -115,16 +139,20 @@ class InstanceScanner:
 
     async def main(self): 
         """makes both request for id and follower following then waits 5 mins to not finish max requests"""
+        
         async with aiohttp.ClientSession(trust_env=True) as session:
-            while not self.follower_queue.empty() or not self.id_queue.empty or not self.following_queue.empty(): 
+            while not self.follower_queue.empty() or not self.id_queue.empty() or not self.following_queue.empty(): 
                 
+                logging.debug('starting collecting for {}'.format(self.instance_name))
                 tasks = []
                 n_request = 240
                 n_request = await self.request_ids(tasks, session, n_request)
-                await self.request_follower_following(tasks, session, n_request)
+                logging.debug('follower {} following {} id {}'.format(self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
+                n_request = await self.request_follower_following(tasks, session, n_request)
                 await asyncio.gather(*tasks)
+                logging.debug('collected data for {}, remaining requests {}'.format(self.instance_name, n_request))
 
-                await asyncio.sleep(310)
+                await asyncio.sleep(10)
 
             self.done = True
 

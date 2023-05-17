@@ -69,7 +69,16 @@ class ManageDB():
     
     def insert_many_instances_to_network(self, instances : list[dict]) -> None: 
         self.network.insert_many(instances)
+
+    def get_from_archive(self, name): 
+        return self.archive.find({'_id': name})
     
+    def update_archive(self, user, followers): 
+        if followers: 
+            self.archive.ProductData.update_one({'_id': user['id']}, {'followers':user['followers']}, upsert=False)
+        else: 
+            self.archive.ProductData.update_one({'_id': user['id']}, {'following':user['following']}, upsert=False)
+
     def size_network(self): 
         return self.network.count_documents({})
     
