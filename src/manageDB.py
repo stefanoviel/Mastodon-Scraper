@@ -58,26 +58,27 @@ class ManageDB():
 
             del post
 
-    def insert_user_followers(self, user_id, followers): 
-        user = self.archive.find_one({"_id": user_id})
-        if user is None: 
-            user = {"_id": user_id, "followers" : followers, "following" : []}
-        else: 
-            user["followers"] = user["followers"] + followers
+    # def insert_user_followers(self, user_id, followers): 
+    #     user = self.archive.find_one({"_id": user_id})
+    #     if user is None: 
+    #         user = {"_id": user_id, "followers" : followers, "following" : []}
+    #     else: 
+    #         user["followers"] = user["followers"] + followers
         
-        self.archive.insert_one(user)
+    #     self.archive.insert_one(user)
     
     def insert_many_instances_to_network(self, instances : list[dict]) -> None: 
         self.network.insert_many(instances)
 
     def get_from_archive(self, name): 
-        return self.archive.find({'_id': name})
+        return self.archive.find_one({'_id': name})
     
     def update_archive(self, user, followers): 
+
         if followers: 
-            self.archive.ProductData.update_one({'_id': user['id']}, {'followers':user['followers']}, upsert=False)
+            self.archive.update_one({'_id': user['_id']}, {"$set": {'followers':user['followers']}}, upsert=False)
         else: 
-            self.archive.ProductData.update_one({'_id': user['id']}, {'following':user['following']}, upsert=False)
+            self.archive.update_one({'_id': user['_id']}, {"$set": {'following':user['following']}}, upsert=False)
 
     def size_network(self): 
         return self.network.count_documents({})

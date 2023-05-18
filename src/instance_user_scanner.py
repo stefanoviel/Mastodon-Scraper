@@ -20,9 +20,9 @@ class InstanceScanner:
         
         logging.basicConfig(level=logging.DEBUG)
 
-    async def add_id_following_follower_queue(self, user_id): 
-        await self.follower_queue.put('https://{}/api/v1/accounts/{}/followers/'.format(self.instance_name, user_id))
-        await self.following_queue.put('https://{}/api/v1/accounts/{}/following/'.format(self.instance_name, user_id))
+    async def add_id_following_follower_queue(self, user_id, user_url): 
+        await self.follower_queue.put(('https://{}/api/v1/accounts/{}/followers/'.format(self.instance_name, user_id), user_url))
+        await self.following_queue.put(('https://{}/api/v1/accounts/{}/following/'.format(self.instance_name, user_id), user_url))
 
 
     async def get_id_from_url(self, session, username) -> None:
@@ -34,13 +34,13 @@ class InstanceScanner:
                 res = await response.json()
 
             if 'accounts' in res and len(res['accounts']) > 0 : 
-                await self.add_id_following_follower_queue(res['accounts'][0]['id'])
+                await self.add_id_following_follower_queue(res['accounts'][0]['id'], url)
                 self.save_users([res['accounts'][0]])
         except (asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ContentTypeError, aiohttp.client_exceptions.ClientConnectorCertificateError) as e: 
             logging.debug('TIMEOUT')
 
 
-    async def get_following_followers(self, session: aiohttp.ClientSession, url: str) -> None:
+    async def get_following_followers(self, session: aiohttp.ClientSession, url: str, user_url:str) -> None:
         """get element from following follower queue and query some pages save results in sort queue"""
 
         params = {'limit': 80}
@@ -53,30 +53,35 @@ class InstanceScanner:
                     logging.debug('adding {} to queue '.format(new_url))
                                 
                     if 'followers' in new_url: 
-                        await self.follower_queue.put(new_url)
+                        logging.debug('adding {} to queue '.format(new_url))
+                        await self.follower_queue.put((new_url, user_url))
                     elif 'following' in new_url: 
-                        await self.following_queue.put(new_url)
+                        logging.debug('adding {} to queue '.format(new_url))
+                        await self.following_queue.put((new_url, user_url))
 
             if len(res) > 0: 
                 self.save_users(res)
+                self.save_network(user_url, url, res)
                 await self.sort_new_users(res)
 
-        except asyncio.exceptions.TimeoutError: 
+        except (asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ContentTypeError) as e: 
             logging.debug('Timeout error')
 
             
     async def sort_new_users(self, user_list): 
         for user in user_list: 
             if self.instance_name in user['url']:                 
-                await self.add_id_following_follower_queue(user['id'])
+                await self.add_id_following_follower_queue(user['id'], user['url'])
             else: 
                 await self.sort_queue.put(user['url'])
 
+    def mongo_id_from_url(self, url:str): 
+        return url.replace("https://", '')
+
     def save_users(self, user_list:list[dict]): 
-        # TODO finish
         posts = []
         for r in user_list: 
-            r["_id"] = r["url"].replace("https://", '')
+            r["_id"] = self.mongo_id_from_url(r["url"])
             r['followers'] = []
             r['following'] = []
             if not self.manageDB.is_in_archive(r['_id']): 
@@ -85,20 +90,25 @@ class InstanceScanner:
         if len(posts) > 0: 
             self.manageDB.insert_many_to_archive(posts)
 
-    def save_network(self, user_list:list[dict], url:str): 
+    def save_network(self, user_url:str, url:str,  user_list:list[dict]): 
         # TODO efficient way to save network
-        id = url.replace("https://", '')
-        user = self.manageDB.get_from_archive(id)
+        id = self.mongo_id_from_url(user_url)
+        main_user = self.manageDB.get_from_archive(id)
         
-        if user: 
-            if 'follower' in url: 
-                user['followers'].extend(user_list)
+        peers_id = [self.mongo_id_from_url(user.get('url')) for user in user_list]
+        peers_id = list(filter(lambda item: item is not None, peers_id))
+
+
+
+        if main_user: 
+            if 'followers' in url: 
+                main_user['followers'].extend(peers_id)
+                self.manageDB.update_archive(main_user, True)
             elif 'following' in url: 
-                user['following'].extend(user_list)
+                main_user['following'].extend(peers_id)
+                self.manageDB.update_archive(main_user, False)
 
-        self.manageDB.update_archive(user)
             
-
 
     async def request_ids(self, tasks: list, session: aiohttp.ClientSession, n_request:int) -> int: 
         """Gets id of the users' name from the id queue, add saves corresponding urls to followers and following queue"""
@@ -109,7 +119,7 @@ class InstanceScanner:
             else: 
                 break
 
-        return math.floor((self.request_every_five_min - completed_requests)/2)  # use remaining requests for followers and following
+        return math.floor(self.request_every_five_min - completed_requests)  # use remaining requests for followers and following
 
 
 
@@ -119,15 +129,15 @@ class InstanceScanner:
         while n_request > 0:  
             logging.debug(n_request)
             if not self.follower_queue.empty(): 
-                url = await self.follower_queue.get()
-                tasks.append(asyncio.create_task(self.get_following_followers(session, url)))
+                url, user_url = await self.follower_queue.get()
+                tasks.append(asyncio.create_task(self.get_following_followers(session, url, user_url)))
                 n_request -= 1
             else: 
                 followers_request_completed = True
 
             if not self.following_queue.empty(): 
-                url = await self.following_queue.get()
-                tasks.append(asyncio.create_task(self.get_following_followers(session, url)))
+                url, user_url = await self.following_queue.get()
+                tasks.append(asyncio.create_task(self.get_following_followers(session, url, user_url)))
                 n_request -= 1
             else: 
                 if followers_request_completed: 
@@ -139,20 +149,26 @@ class InstanceScanner:
 
     async def main(self): 
         """makes both request for id and follower following then waits 5 mins to not finish max requests"""
+
+        n_request = 280
         
         async with aiohttp.ClientSession(trust_env=True) as session:
             while not self.follower_queue.empty() or not self.id_queue.empty() or not self.following_queue.empty(): 
                 
                 logging.debug('starting collecting for {}'.format(self.instance_name))
                 tasks = []
-                n_request = 240
+                
+                if n_request == 0: 
+                    await asyncio.sleep(310)
+                    n_request = 280
+
                 n_request = await self.request_ids(tasks, session, n_request)
-                logging.debug('follower {} following {} id {}'.format(self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
+                await asyncio.gather(*tasks)  # TODO: problem is it exit after a cycle, the request id don't get executed
                 n_request = await self.request_follower_following(tasks, session, n_request)
                 await asyncio.gather(*tasks)
+                print(len(tasks))
+                logging.debug('follower {} following {} id {}'.format(self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
                 logging.debug('collected data for {}, remaining requests {}'.format(self.instance_name, n_request))
-
-                await asyncio.sleep(10)
 
             self.done = True
 

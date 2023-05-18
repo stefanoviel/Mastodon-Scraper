@@ -52,13 +52,16 @@ class UserSorter:
     async def sort(self): 
         
         # TODO: decide how to make the loop stop
+        i = 0
         while True:
             print('waiting for id')
+            if i == 1: 
+                await asyncio.sleep(1000)
             user_url  = await self.sort_queue.get()
-
+            i = 1
             instance_name = self.extract_instance_name(user_url)
             instance = self.current_instances.get(instance_name)
-            username = self.extract_username(user_url)
+            username = self.extract_username(user_url)  # TODO don't extract username, but pass whole url
 
             if username is None: 
                 continue
@@ -83,10 +86,15 @@ class UserSorter:
 
 
 async def main(): 
-    u = UserSorter(asyncio.Queue(), asyncio.Queue(), ManageDB('users'))
+    mdb = ManageDB('users')
+    mdb.reset_collections()
+    u = UserSorter(asyncio.Queue(), asyncio.Queue(), mdb)
     await u.start_with_Gargron()
 
 
 if __name__ == "__main__": 
     asyncio.run(main())
+    # mdb = ManageDB('users')
+    # us= mdb.archive.find_one({'_id': 'mastodon.social/@Gargron'})
+    # print(us['followers'])
 
