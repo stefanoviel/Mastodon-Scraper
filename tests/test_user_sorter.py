@@ -38,7 +38,26 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
         instance = self.u_sorter.extract_username('http://ioc.exchange/@mourninggnu')
         self.assertEqual('@mourninggnu', instance)
 
-    
+    async def test_create_instance_scanner(self): 
+
+        await self.u_sorter.create_instance_scanner('one')
+        await self.u_sorter.create_instance_scanner('two')
+        await self.u_sorter.create_instance_scanner('three')
+
+        
+        self.assertEqual(len(self.u_sorter.all_instances), 3)
+
+    async def test_remove_done_instances(self): 
+        for i in range(10): 
+            name = 'mastodon' + str(i)
+            await self.u_sorter.create_instance_scanner(name)
+
+            if i % 2 == 0: 
+                self.u_sorter.all_instances[name].done = True
+        
+        self.u_sorter.remove_done_instances()
+
+        self.assertEqual(len(self.u_sorter.all_instances), 5)
 
 if __name__ == "__main__": 
     unittest.main()

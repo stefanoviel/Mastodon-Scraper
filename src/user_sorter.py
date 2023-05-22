@@ -35,13 +35,19 @@ class UserSorter:
         else: 
             return username
     
-    def check_all_done(self): 
-        for instance_name, instance in self.all_instances.items():
+    def remove_done_instances(self): 
+        for instance_name, instance in list(self.all_instances.items()):
+            if instance.done:
+                del self.all_instances[instance_name]
+
+
+    def check_done(self): 
+        for instance_name, instance in list(self.all_instances.items()):
             if not instance.done:
                 return False
             
         return True
-    
+        
 
     async def create_instance_scanner(self, instance_name): 
 
@@ -53,6 +59,10 @@ class UserSorter:
         
         # TODO: decide how to make the loop stop
         while True:
+            
+            if self.sort_queue.empty() and self.check_done(): 
+                print('All user scraped :)')
+                break
 
             user_url  = await self.sort_queue.get()
             instance_name = self.extract_instance_name(user_url)
@@ -63,7 +73,9 @@ class UserSorter:
                 continue
 
             if instance is None:
-                logging.debug('adding instance {}'.format(instance_name))
+                # logging.debug('adding instance {}'.format(instance_name))
+                self.remove_done_instances()
+
                 instance = await self.create_instance_scanner(instance_name)
                 
                 await instance.id_queue.put(user_url)                

@@ -23,6 +23,7 @@ class InstanceScanner:
 
         logging.basicConfig(level=logging.INFO)
 
+
     async def add_id_following_follower_queue(self, user_id, user_url):
         await self.follower_queue.put(('https://{}/api/v1/accounts/{}/followers/'.format(self.instance_name, user_id), user_url))
         await self.following_queue.put(('https://{}/api/v1/accounts/{}/following/'.format(self.instance_name, user_id), user_url))
@@ -127,7 +128,7 @@ class InstanceScanner:
                 tasks.append(asyncio.create_task(
                     self.get_id_from_url(session, user_url)))
             else:
-                return math.floor(self.request_every_five_min - completed_requests)
+                break
 
         # use remaining requests for followers and following
         return math.floor(self.request_every_five_min - completed_requests)
@@ -156,6 +157,30 @@ class InstanceScanner:
                     break
 
         return n_request
+    
+    async def request_id_and_url(self, n_request, session): 
+
+        logging.debug(
+            'starting collecting for {}'.format(self.instance_name))
+        tasks = []
+
+        if n_request <= 0:
+            if self.instance_name == 'mastodon.social': 
+                logging.info('{} sleeping 5 minutes..'.format(self.instance_name))
+            await asyncio.sleep(310)
+            n_request = 300
+
+        n_request = await self.request_ids(tasks, session, n_request)
+        await asyncio.gather(*tasks)
+
+        n_request = await self.request_follower_following(tasks, session, n_request)
+        await asyncio.gather(*tasks)
+
+        if self.instance_name == 'mastodon.social': 
+            logging.info('follower {} following {} id {}'.format(self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
+            logging.info('collected data for {}, remaining requests {}'.format(self.instance_name, n_request))
+
+        return n_request
 
     async def main(self):
         """makes both request for id and follower following then waits 5 mins to not finish max requests"""
@@ -164,34 +189,12 @@ class InstanceScanner:
 
         async with aiohttp.ClientSession(trust_env=True) as session:
             while not self.follower_queue.empty() or not self.id_queue.empty() or not self.following_queue.empty():
-
-                logging.debug(
-                    'starting collecting for {}'.format(self.instance_name))
-                tasks = []
-
-                if n_request <= 0:
-                    logging.debug(
-                        '{} sleeping 5 minutes..'.format(self.instance_name))
-                    await asyncio.sleep(310)
-                    n_request = 300
-
-                n_request = await self.request_ids(tasks, session, n_request)
-                # TODO: problem is it exit after a cycle, the request id don't get executed
-                await asyncio.gather(*tasks)
-
-                n_request = await self.request_follower_following(tasks, session, n_request)
-                await asyncio.gather(*tasks)
-
-                logging.info('follower {} following {} id {}'.format(
-                    self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
-                logging.info('collected data for {}, remaining requests {}'.format(
-                    self.instance_name, n_request))
+                n_request = await self.request_id_and_url(n_request, session)
 
             self.done = True
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     pass
-
 
 # TODO first user doesn't get scraped

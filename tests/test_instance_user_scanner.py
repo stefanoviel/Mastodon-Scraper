@@ -143,18 +143,27 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(type(following) is str)
 
 
-    async def test_main(self): 
+    async def test_request_id_and_url(self): 
         # self.scan.instance_name = 'mastodon.social'
         # await self.id_queue.put('@brianbilston')
 
         await self.id_queue.put('https://mastodon.social/@Gargron')
-        await self.scan.main()
 
-        self.assertEqual(self.id_queue.qsize(), 0)
-        self.assertEqual(self.scan.follower_queue.qsize(), 0)
-        self.assertEqual(self.scan.following_queue.qsize(), 0)
+        n_request = 300
+        async with aiohttp.ClientSession(trust_env=True) as session:
+            for i in range(3): 
+                n_request = await self.scan.request_id_and_url(n_request, session)
+                if n_request <= 0: 
+                    break
+
+        user = self.manageDB.archive.find_one({'_id': 'mastodon.social/@Gargron'})
+
+        # gets executed 3 times 3*80 = 240
+        self.assertEqual(len(user['followers']), 240)
+        self.assertEqual(len(user['following']), 240)
+
+
     
-
 if __name__ == "__main__": 
 
     unittest.main()
