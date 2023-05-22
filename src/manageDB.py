@@ -74,7 +74,6 @@ class ManageDB():
         return self.archive.find_one({'_id': name})
     
     def update_archive(self, user, followers): 
-
         if followers: 
             self.archive.update_one({'_id': user['_id']}, {"$set": {'followers':user['followers']}}, upsert=False)
         else: 

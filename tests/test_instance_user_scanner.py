@@ -77,10 +77,10 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
 
         num_requests = 10
 
-        users = [user.replace(self.instance_name + '/', '') for user in self.users if self.instance_name in user][:num_requests]
+        users = [user for user in self.users if self.instance_name in user][:num_requests]
 
         if self.instance_name == 'mastodon.social': 
-            users.insert(0, '@Gargron')
+            users.insert(0, 'https://mastodon.social/@Gargron')
         num_requests += 1
 
         async with aiohttp.ClientSession(trust_env=True) as session:
@@ -106,7 +106,8 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
         # populating id_queue with usernames
         for user in self.users[:num_requests]: 
             if self.instance_name in user: 
-                await self.scan.id_queue.put(user.replace('{}/'.format(self.instance_name), ''))
+                print('putting', user)
+                await self.scan.id_queue.put(user)
 
         tasks = []
         num_id_requested = self.scan.id_queue.qsize()
@@ -143,6 +144,9 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
 
 
     async def test_main(self): 
+        # self.scan.instance_name = 'mastodon.social'
+        # await self.id_queue.put('@brianbilston')
+
         await self.id_queue.put('https://mastodon.social/@Gargron')
         await self.scan.main()
 

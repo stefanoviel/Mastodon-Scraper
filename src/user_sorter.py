@@ -15,11 +15,11 @@ class UserSorter:
 
     def __init__(self, id_queue: asyncio.Queue,  sort_queue: asyncio.Queue, manageDB: ManageDB) -> None:
         self.sort_queue = sort_queue
-        self.current_instances = {}
+        self.all_instances = {}
         self.manageDB = manageDB
         self.tasks = []
 
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.INFO)
 
     def extract_instance_name(self, url): 
         pattern = r"(?<=//)(.*?)(?=/)"
@@ -36,7 +36,7 @@ class UserSorter:
             return username
     
     def check_all_done(self): 
-        for instance_name, instance in self.current_instances.items():
+        for instance_name, instance in self.all_instances.items():
             if not instance.done:
                 return False
             
@@ -46,22 +46,18 @@ class UserSorter:
     async def create_instance_scanner(self, instance_name): 
 
         instance = InstanceScanner(instance_name, asyncio.Queue(), self.sort_queue, self.manageDB)
-        self.current_instances[instance_name] = instance
+        self.all_instances[instance_name] = instance
         return instance
 
     async def sort(self): 
         
         # TODO: decide how to make the loop stop
-        i = 0
         while True:
-            print('waiting for id')
-            if i == 1: 
-                await asyncio.sleep(1000)
+
             user_url  = await self.sort_queue.get()
-            i = 1
             instance_name = self.extract_instance_name(user_url)
-            instance = self.current_instances.get(instance_name)
-            username = self.extract_username(user_url)  # TODO don't extract username, but pass whole url
+            instance = self.all_instances.get(instance_name)
+            username = self.extract_username(user_url) 
 
             if username is None: 
                 continue
@@ -70,10 +66,12 @@ class UserSorter:
                 logging.debug('adding instance {}'.format(instance_name))
                 instance = await self.create_instance_scanner(instance_name)
                 
-                await instance.id_queue.put(username)                
+                await instance.id_queue.put(user_url)                
                 
                 loop = asyncio.get_event_loop()
                 loop.create_task(instance.main())
+
+                logging.info('number of instances {}'.format(len(self.all_instances)))
 
             else: 
                 await instance.id_queue.put(username)
