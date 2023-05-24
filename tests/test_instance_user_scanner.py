@@ -41,7 +41,6 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
                 if run == 0: # can test only with followers because it is the first being run 
                     # this call will put elements in following queue so it won't be possible to do the same test
                     gargron_followers, user_url = await self.scan.follower_queue.get()
-                    print('followers', gargron_followers)
                     self.assertTrue('https://mastodon.social/api/v1/accounts/1/followers?limit=80&max_id' in gargron_followers)
                     self.assertEqual('https://mastodon.social/@Gargron', user_url)
 
@@ -106,7 +105,6 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
         # populating id_queue with usernames
         for user in self.users[:num_requests]: 
             if self.instance_name in user: 
-                print('putting', user)
                 await self.scan.id_queue.put(user)
 
         tasks = []
@@ -133,34 +131,90 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
 
         self.scan.save_network(user_url, 'https://mastodon.social/api/v1/accounts/1/followers/', follower)
         self.scan.save_network(user_url, 'https://mastodon.social/api/v1/accounts/1/following/', following)
+        self.scan.save_network(user_url, 'https://mastodon.social/api/v1/accounts/1/followers/', follower)
+        self.scan.save_network(user_url, 'https://mastodon.social/api/v1/accounts/1/following/', following)
 
 
         user = self.manageDB.archive.find_one({'_id': 'mastodon.social/@Gargron'})
-        self.assertEqual(len(user['followers']), len(follower))
-        self.assertEqual(len(user['following']), len(following))
+        self.assertEqual(len(user['followers']), len(follower)*2)
+        self.assertEqual(len(user['following']), len(following)*2)
         for follower, following in zip(user['followers'], user['following']): 
             self.assertTrue(type(follower) is str)
             self.assertTrue(type(following) is str)
 
 
-    async def test_request_id_and_url(self): 
-        # self.scan.instance_name = 'mastodon.social'
-        # await self.id_queue.put('@brianbilston')
+    async def test_get_following_followers(self): 
+        self.scan.save_users([{
+        "_id": "mastodon.social/@Gargron",
+        "id": "1",
+        "username": "Gargron",
+        "url":"https://mastodon.social/@Gargron",
+        "instance": "mastodon.social",
+        "followers": [],
+        "following": []
+        }])
 
-        await self.id_queue.put('https://mastodon.social/@Gargron')
+        url = 'https://mastodon.social/api/v1/accounts/1/followers?limit=80&max_id=39555032'
 
-        n_request = 300
         async with aiohttp.ClientSession(trust_env=True) as session:
-            for i in range(3): 
-                n_request = await self.scan.request_id_and_url(n_request, session)
-                if n_request <= 0: 
-                    break
+            await self.scan.get_following_followers(session, url, 'mastodon.social/@Gargron')
 
         user = self.manageDB.archive.find_one({'_id': 'mastodon.social/@Gargron'})
+        self.assertEqual(len(user['followers']), 80)
+        
 
-        # gets executed 3 times 3*80 = 240
-        self.assertEqual(len(user['followers']), 240)
-        self.assertEqual(len(user['following']), 240)
+    # async def test_get_from_queue(self): 
+        
+    #     self.scan.save_users([{
+    #     "_id": "mastodon.social/@Gargron",
+    #     "id": "1",
+    #     "username": "Gargron",
+    #     "url":"https://mastodon.social/@Gargron",
+    #     "instance": "mastodon.social",
+    #     "followers": [],
+    #     "following": []
+    #     }])
+
+    #     await self.scan.follower_queue.put(('https://mastodon.social/api/v1/accounts/1/followers', 'mastodon.social/@Gargron'))
+    #     await self.scan.following_queue.put(('https://mastodon.social/api/v1/accounts/1/following', 'mastodon.social/@Gargron'))
+
+    #     tasks = []
+    #     n_request = 60
+    #     n_request1 = n_request * 2
+    #     async with aiohttp.ClientSession(trust_env=True) as session:
+    #         for i in range(n_request): 
+    #             res, n_request1 = await self.scan.get_from_queue(self.scan.follower_queue, tasks, session, n_request1)
+    #             res, n_request1 = await self.scan.get_from_queue(self.scan.following_queue, tasks, session, n_request1)
+    #             print(res, n_request1)
+    #             print('iteration', i)
+        
+    #             await asyncio.gather(*tasks)
+
+    #     self.assertFalse(res)
+    #     user = self.manageDB.archive.find_one({'_id': 'mastodon.social/@Gargron'})
+    #     print(len(user['following']))
+    #     print(len(user['followers']))
+
+
+
+    # async def test_request_id_and_url(self): 
+    #     # self.scan.instance_name = 'mastodon.social'
+    #     # await self.id_queue.put('@brianbilston')
+
+    #     await self.id_queue.put('https://mastodon.social/@Gargron')
+
+    #     n_request = 300
+    #     async with aiohttp.ClientSession(trust_env=True) as session:
+    #         for i in range(3): 
+    #             n_request = await self.scan.request_id_and_url(n_request, session)
+    #             if n_request <= 0: 
+    #                 break
+
+    #     user = self.manageDB.archive.find_one({'_id': 'mastodon.social/@Gargron'})
+
+    #     # gets executed 3 times 3*80 = 240
+    #     self.assertEqual(len(user['followers']), 240)
+    #     self.assertEqual(len(user['following']), 240)
 
 
     

@@ -35,9 +35,9 @@ class ManageDB():
     def instance_has_error(self, instance_id: str) -> bool: 
         return "error" in self.archive.find_one({"_id": instance_id})
     
-    def insert_one_to_archive(self, id, info): 
+    def insert_one_to_archive(self, info): 
         try: 
-            self.archive.insert_one({"_id" : id, "info" : info})
+            self.archive.insert_one(info)
         except pymongo.errors.DuplicateKeyError:
             pass 
 
@@ -79,9 +79,18 @@ class ManageDB():
         else: 
             self.archive.update_one({'_id': user['_id']}, {"$set": {'following':user['following']}}, upsert=False)
 
+    def add_peers_instance(self, instance_id, peers): 
+        self.archive.update_one({'_id': instance_id}, {"$set": {"peers": peers}})
+
+
     def size_network(self): 
         return self.network.count_documents({})
     
+    def has_peers(self, name): 
+        instance = self.archive.find_one({'_id': name})
+        return 'peers' in instance
+
+
     def size_archive(self): 
         return self.archive.count_documents({})
 

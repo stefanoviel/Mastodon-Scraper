@@ -83,7 +83,7 @@ class UserSorter:
                 loop = asyncio.get_event_loop()
                 loop.create_task(instance.main())
 
-                logging.info('number of instances {}'.format(len(self.all_instances)))
+                # logging.info('number of instances {}'.format(len(self.all_instances)))
 
             else: 
                 await instance.id_queue.put(username)
