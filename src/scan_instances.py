@@ -91,16 +91,19 @@ class ScanInstances:
             tasks = []
             save_every = 1 # first iteration we save immediately
             iterations = 0
+            first = True
 
-            while True:
+            
+            while self.peers_queue.qsize() != 0 or self.info_queue.qsize() != 0 or first:
                 iterations += 1
                 name, depth = await self.peers_queue.get()
+                first = False
 
                 if not self.manageDb.has_peers(name):
+                    logging.info('getting peers {}'.format(name))
                     tasks.append(asyncio.create_task(self.bound_fetch(self.fetch_peers, sem, name, session, depth)))
 
                 if iterations == save_every:
-                    
                     # take min to save last elements
                     save_every = min(save_result_every_n, self.peers_queue.qsize()) 
                     iterations = 0
@@ -110,7 +113,7 @@ class ScanInstances:
 
                     await self.save_peers_results(results)
 
-                    results.clear()
+                    # results.clear() removed for testing
                     gc.collect()
                     await self.save_info_peers_queue()
 
@@ -137,43 +140,49 @@ class ScanInstances:
         async with aiohttp.ClientSession(connector=connector, trust_env=True) as session:
             tasks = []
 
-            save_every = 1 # first iteration we save immediately
+            save_every = 0 # first iteration we save immediately
             iterations = 0
 
-            while True:
-                iterations += 1
-                name, depth = await self.info_queue.get()
-                tasks.append(asyncio.create_task(self.bound_fetch(
-                    self.fetch_info, sem, name, session, int(depth))))
+            while self.peers_queue.qsize() != 0 or self.info_queue.qsize() != 0:
+                iterations += 1 # second iteration doesn't save anything
 
+                name, depth = await self.info_queue.get()
+                logging.info('getting info {}'.format(name))
+                tasks.append(asyncio.create_task(self.bound_fetch(self.fetch_info, sem, name, session, int(depth))))
+
+                print(iterations, save_every)
                 if iterations == save_every:
                     save_every = min(save_result_every_n, self.info_queue.qsize())
                     iterations = 0
-
+                    print('saving')
                     results = await asyncio.gather(*tasks)
                     tasks.clear()
-
+    
                     await self.save_info_results(results)
-                    results.clear()
                     gc.collect()
+            
 
 
-    async def batch(self):
+
+    async def batch(self, info_queue_size, frequency_saving_info, frequency_saving_peers):
 
         # only way it can explode is if get_peers queue becomes too big
         # to fix just save those in memory
-        self.info_queue = asyncio.Queue(20000) # queues keep two elements name and depth (distance from original one)
+        self.info_queue = asyncio.Queue(info_queue_size) # queues keep two elements name and depth (distance from original one)
         self.peers_queue = asyncio.Queue()
 
         await self.load_info_peers_queue()
 
         if self.info_queue.empty():
             await self.info_queue.put(("mastodon.social", 0))
+ 
+        await asyncio.gather(self.query_info(frequency_saving_info), self.query_peers(frequency_saving_peers))
 
-        await asyncio.gather(self.query_info(save_result_every_n=10000), self.query_peers(save_result_every_n=100))
 
     def main(self):
-        asyncio.run(self.batch())
+        asyncio.run(self.batch(20, 10, 2))
+
+        
 
     def chunks(self, lst, n):
         """Yield successive n-sized chunks from lst."""
