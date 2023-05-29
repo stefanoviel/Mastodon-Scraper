@@ -17,5 +17,3 @@ class MangageQueue:
         with open(path) as file: 
             while queue.qsize() > 0: 
                 file.write(await queue.get())
-
-                
