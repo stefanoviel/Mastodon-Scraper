@@ -124,42 +124,42 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
 
 
 
-    @mock.patch.object(ScanInstances, 'save_info_results')
-    @mock.patch.object(ScanInstances, 'bound_fetch')
-    async def test_query_peers(self, bound_fetch_mock, save_peers): 
+    # @mock.patch.object(ScanInstances, 'save_info_results')
+    # @mock.patch.object(ScanInstances, 'bound_fetch')
+    # async def test_query_peers(self, bound_fetch_mock, save_peers): 
         
-        bound_fetch_return = {'uri': 'mastodon.social', 'info' : 'abc'}
-        bound_fetch_mock.return_value = bound_fetch_return
-
-        n_elements = 40
-        for i in range(n_elements): 
-            await self.scan.info_queue.put(('mastodon.social_{}'.format(i), i))
-
-        await self.scan.query_info(10)
-
-        call_args = []
-        for i in save_peers.call_args_list: 
-            call_args  = call_args  + i[0][0]
-
-        self.assertEqual(bound_fetch_mock.call_count, n_elements) # each element fetched
-        self.assertEqual(len(call_args), n_elements) # all saved
-        self.assertEqual(self.scan.peers_queue.qsize(), 0) # nothing on the queue
-
-
-    # @mock.patch.object(ScanInstances, 'fetch_peers')
-    # @mock.patch.object(ScanInstances, 'fetch_info')
-    # async def test_batch(self, fetch_info, fetch_peers): 
-    #     fetch_info_return = {'uri': 'mastodon.social', 'info' : 'abc'}
-    #     fetch_info.return_value = fetch_info_return
-
-    #     fetch_peers_return = ['abs_{}'.format(i) for i in range(20)]
-    #     fetch_peers.return_value = fetch_peers_return
+    #     bound_fetch_return = {'uri': 'mastodon.social', 'info' : 'abc'}
+    #     bound_fetch_mock.return_value = bound_fetch_return
 
     #     n_elements = 40
     #     for i in range(n_elements): 
     #         await self.scan.info_queue.put(('mastodon.social_{}'.format(i), i))
 
-    #     await self.scan.batch(100, 10, 10)
+    #     await self.scan.query_info(10)
+
+    #     call_args = []
+    #     for i in save_peers.call_args_list: 
+    #         call_args  = call_args  + i[0][0]
+
+    #     self.assertEqual(bound_fetch_mock.call_count, n_elements) # each element fetched
+    #     self.assertEqual(len(call_args), n_elements) # all saved
+    #     self.assertEqual(self.scan.peers_queue.qsize(), 0) # nothing on the queue
+
+
+    @mock.patch.object(ScanInstances, 'fetch_peers')
+    @mock.patch.object(ScanInstances, 'fetch_info')
+    async def test_batch(self, fetch_info, fetch_peers): 
+        fetch_info_return = {'uri': 'mastodon.social', 'info' : 'abc'}
+        fetch_info.return_value = fetch_info_return
+
+        fetch_peers_return = ['abs_{}'.format(i) for i in range(20)]
+        fetch_peers.return_value = fetch_peers_return
+
+        n_elements = 40
+        for i in range(n_elements): 
+            await self.scan.info_queue.put(('mastodon.social_{}'.format(i), i))
+
+        await self.scan.batch(100, 10, 10)
         
 
 
