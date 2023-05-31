@@ -39,12 +39,7 @@ class FetchInstanceInfo:
     
     async def loop_get_from_info_queue_and_fetch(self): 
         
-        # print(self.info_queue.empty())
-        print('in')
-        print(self.info_queue.empty())
-        # while not self.info_queue.empty() : 
-        #     print('ok')
-            # elem = await self.info_queue.get()   
-            # print(elem) 
+        while not self.info_queue.empty() or not self.peers_queue.empty(): 
+            elem, depth = await self.info_queue.get()  
 
 

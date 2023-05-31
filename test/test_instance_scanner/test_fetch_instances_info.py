@@ -3,6 +3,8 @@ import asyncio
 import aiohttp
 import mock
 
+from unittest.mock import Mock, AsyncMock
+
 
 from src.instances_scanner.fetch_instances_info import FetchInstanceInfo
 
@@ -37,18 +39,37 @@ class TestInstanceScanner(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(info, {'uri':instance_name, 'error': ''})
 
 
-    @mock.patch(FetchInstanceInfo.info_queue, 'get')
-    async def test_fetch_all_elements_info_queue(self, mocked_queue): 
-        res = [False] * 9 + [True]
-        print(res)
-        mocked_queue.empty.return_value = False
-        # empty.side_effects = [False] * 9 + [True]
+
+    async def test_fetch_elements_until_info_queue_is_empty(self): 
+
+        self.fetch_instance_info.info_queue.empty = Mock(side_effect=[False] * 9 + [True])
+        self.fetch_instance_info.info_queue.get = AsyncMock(return_value=('mastodon.social', 1))
 
         await self.fetch_instance_info.loop_get_from_info_queue_and_fetch()
 
-        # self.assertEqual(len(mocked_get.call_args_list), 10)
+        self.assertEqual(len(self.fetch_instance_info.info_queue.get.call_args_list), 9) # just 9 because last iteratio is False
+
+    
+    async def test_fetch_elements_until_peers_queue_is_empty(self): 
+
+        self.fetch_instance_info.info_queue.empty = Mock(side_effect=[False] * 10 + [True] * 5)
+        self.fetch_instance_info.peers_queue.empty = Mock(side_effect=[False] * 4 + [True])  # 5 because of lazy evaluation
+        self.fetch_instance_info.info_queue.get = AsyncMock(return_value=('mastodon.social', 1))
+
+        await self.fetch_instance_info.loop_get_from_info_queue_and_fetch()
+
+        self.assertEqual(len(self.fetch_instance_info.info_queue.get.call_args_list), 14)
 
 
+    async def test_fetch_elements_until_peers_queue_is_empty(self): 
+
+        self.fetch_instance_info.info_queue.empty = Mock(side_effect=[False] * 10 + [True] * 5)
+        self.fetch_instance_info.peers_queue.empty = Mock(side_effect=[False] * 4 + [True])  # 5 because of lazy evaluation
+        self.fetch_instance_info.info_queue.get = AsyncMock(return_value=('mastodon.social', 1))
+
+        await self.fetch_instance_info.loop_get_from_info_queue_and_fetch()
+
+        self.assertEqual(len(self.fetch_instance_info.info_queue.get.call_args_list), 14)
 
 if __name__ == '__main__':
     unittest.main()
