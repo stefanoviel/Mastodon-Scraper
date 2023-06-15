@@ -22,6 +22,7 @@ class ScanInstances:
         logging.basicConfig(level=logging.INFO)
 
     async def load_queue(self, queue: asyncio.Queue, queue_name: str) -> None:
+        """load a queue from txt file"""
         file = open(queue_name)
         for elem in file.read().splitlines():
             elem = elem.split(',')
@@ -30,10 +31,12 @@ class ScanInstances:
         file.close()
 
     async def load_info_peers_queue(self):
+        """load the info and the peers queue from file"""
         await self.load_queue(self.info_queue, self.info_queue_path)
         await self.load_queue(self.peers_queue, self.peers_queue_path)
 
     async def save_queue(self, queue: asyncio.Queue, queue_name: str) -> None:
+        """save a queue to txt file"""
         tot = queue.qsize()
         with open(queue_name, 'w') as f:
             for _ in range(tot):
@@ -42,6 +45,7 @@ class ScanInstances:
                 await queue.put(elem)
 
     async def save_info_peers_queue(self) -> None:
+        """save the info and the peers queue to file"""
         logging.debug('saving queue')
         await self.save_queue(self.info_queue, self.info_queue_path)
         await self.save_queue(self.peers_queue, self.peers_queue_path)
@@ -71,7 +75,7 @@ class ScanInstances:
             return await fetching_fun(url, session, depth)
 
     async def save_peers_results(self, results: dict):
-
+        """put the new peers into the info queue in order to retrieve the info"""
         for name, peers, depth in results:
             if peers is not None and 'error' not in peers:
                 self.manageDb.add_peers_instance(name, peers)
@@ -83,6 +87,7 @@ class ScanInstances:
                         await self.info_queue.put((p, int(depth) + 1))
 
     async def save_info_results(self, results: list[dict]) -> None:
+        """save the info of the peers that have been scraped """
         for res, depth in results:
             # save even if there is an error
             if res is not None and 'uri' in res and not self.manageDb.is_in_archive(res["uri"]):
@@ -96,6 +101,7 @@ class ScanInstances:
                     await self.peers_queue.put((res["uri"], depth))
 
     async def save_results_reset_loop(self, tasks, queue_saver, save_result_every_n, queue_size):
+        """save info queues and reset save every"""
 
         # take min to save last elements
         save_every = min(save_result_every_n, queue_size)
@@ -113,6 +119,8 @@ class ScanInstances:
         return save_every
 
     async def loop_query_peers(self, session, sem, save_result_every_n):
+        """loop and query the instances in peers queue"""
+
         tasks = []
         save_every = 1  # first iteration we save immediately
         iterations = 0
@@ -152,6 +160,7 @@ class ScanInstances:
             await self.loop_query_info(session, sem, save_result_every_n)
 
     async def loop_query_info(self, session, sem, save_result_every_n):
+        """loop and query the instances in the info queue"""
 
         tasks = []
         save_every = 1  # first iteration we save immediately
@@ -171,6 +180,7 @@ class ScanInstances:
                 save_every = await self.save_results_reset_loop(tasks, self.save_info_results, save_result_every_n, self.info_queue.qsize())
 
     async def batch(self, info_queue_size, frequency_saving_info, frequency_saving_peers):
+        """start both info query and peers query togheter (one feeds the other and vice versa)"""
 
         # only way it can explode is if get_peers queue becomes too big
         # to fix just save those in memory
@@ -188,15 +198,9 @@ class ScanInstances:
     def main(self):
         asyncio.run(self.batch(20000, 10000, 100))
 
-    def chunks(self, lst, n):
-        """Yield successive n-sized chunks from lst."""
-        try:
-            for i in range(0, len(lst), n):
-                yield lst[i:i + n]
-        except TypeError as tp:
-            return []
 
     def reset_queue(self):
+        """reset queues for testing purposes"""
         open(self.info_queue_path, 'w').close()
         open(self.peers_queue_path, 'w').close()
 
@@ -205,6 +209,9 @@ if __name__ == "__main__":
 
     manageDB = ManageDB('instances')
     instances = ScanInstances(manageDB)
-    instances.manageDb.reset_collections()
-    instances.reset_queue()
+
+    # for testing purposes use the below two
+    # instances.manageDb.reset_collections() 
+    # instances.reset_queue()
+
     instances.main()

@@ -25,11 +25,14 @@ class InstanceScanner:
 
 
     async def add_id_following_follower_queue(self, user_id, user_url):
+        """add the link and id of a certain user to the following and follower queues"""
+
         # logging.debug('adding from method {} to queue '.format(('https://{}/api/v1/accounts/{}/followers/'.format(self.instance_name, user_id))))
         await self.following_queue.put(('https://{}/api/v1/accounts/{}/following/'.format(self.instance_name, user_id), user_url))
         await self.follower_queue.put(('https://{}/api/v1/accounts/{}/followers/'.format(self.instance_name, user_id), user_url))
 
     def extract_username(self, url):
+        """extract username from url"""
         username = re.search(r'@(.+)', url)
         if username: 
             return username.group(0)
@@ -37,6 +40,7 @@ class InstanceScanner:
             return username
     
     def extract_instance_name(self, url): 
+        """extract instance name from url"""
         pattern = r"(?<=//)(.*?)(?=/)"
 
         result = re.search(pattern, url)
@@ -93,6 +97,7 @@ class InstanceScanner:
             logging.debug('requesting followers threw {}'.format(e))
 
     async def sort_new_users(self, user_list): 
+        """if the new user belong to this instance add them to following follower queue, otherwise send them to the sort queue"""
         for user in user_list:
             if self.instance_name in user['url']:
                 # print('adding {}'.format(user['url']))
@@ -104,6 +109,7 @@ class InstanceScanner:
         return url.replace("https://", '')
 
     def save_users(self, user_list: list[dict]):
+        """create a dictionary in to save user to DB"""
         posts = []
 
         for r in user_list:
@@ -118,6 +124,7 @@ class InstanceScanner:
             self.manageDB.insert_many_to_archive(posts)
 
     def save_network(self, user_url: str, url: str,  user_list: list[dict]):
+        """get the current dictionary of the user saved in the DB and extend the follower and following list"""
         id = self.mongo_id_from_url(user_url)
         main_user = self.manageDB.get_from_archive(id)
 
@@ -146,6 +153,7 @@ class InstanceScanner:
         return math.floor(self.request_every_five_min - completed_requests)
     
     async def get_from_queue(self, queue, tasks, session, n_request): 
+        """get user from queue (following or follower queue) and create a task to get its following and followers"""
         if not queue.empty():
 
             url, user_url = await queue.get()
@@ -171,21 +179,22 @@ class InstanceScanner:
         return n_request
     
     async def request_id_and_url(self, n_request, session): 
+        """put everything together, requeust ids and request followers follwing"""
 
         logging.debug(
             'starting collecting for {}'.format(self.instance_name))
         tasks = []
 
-        if n_request <= 0:
+        if n_request <= 0: # if we finished max number of requests sleep five minutes
             if self.instance_name == 'mastodon.social': 
                 logging.info('{} sleeping 5 minutes..'.format(self.instance_name))
             await asyncio.sleep(310)
             n_request = 300
 
-        n_request = await self.request_ids(tasks, session, n_request)
+        n_request = await self.request_ids(tasks, session, n_request)  # request numerical id of users we only know the name
         await asyncio.gather(*tasks)
 
-        n_request = await self.request_follower_following(tasks, session, n_request)
+        n_request = await self.request_follower_following(tasks, session, n_request)  
         await asyncio.gather(*tasks)
 
         if self.instance_name == 'mastodon.social': 
@@ -195,7 +204,7 @@ class InstanceScanner:
         return n_request
 
     async def main(self):
-        """makes both request for id and follower following then waits 5 mins to not finish max requests"""
+        """create session and start both processes"""
 
         n_request = 300
 
@@ -208,5 +217,3 @@ class InstanceScanner:
 
 if __name__ == "__main__": 
     pass
-
-# TODO first user doesn't get scraped

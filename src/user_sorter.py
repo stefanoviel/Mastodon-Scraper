@@ -1,9 +1,3 @@
-# sorter
-# list of all instances
-# get user send it to instance
-# when new instance create class
-
-
 import re
 import asyncio
 import aiohttp
@@ -55,6 +49,7 @@ class UserSorter:
         return instance
 
     async def sort(self):
+        """all instances add users of other instances to the sort queue, here they are sent to the correct instance"""
 
         # TODO: decide how to make the loop stop
         while True:
