@@ -103,6 +103,7 @@ class InstanceScanner:
                 # print('adding {}'.format(user['url']))
                 await self.add_id_following_follower_queue(user['id'], user['url'])
             else:
+                # print('url', user['url'])
                 await self.sort_queue.put(user['url'])
 
     def mongo_id_from_url(self, url: str):
@@ -128,6 +129,8 @@ class InstanceScanner:
         id = self.mongo_id_from_url(user_url)
         main_user = self.manageDB.get_from_archive(id)
 
+        print(id)
+
         peers_id = [self.mongo_id_from_url(user.get('url')) for user in user_list]
         peers_id = list(filter(lambda item: item is not None, peers_id))
 
@@ -144,6 +147,7 @@ class InstanceScanner:
         for completed_requests in range(n_request):
             if completed_requests < 250 and not self.id_queue.empty(): 
                 user_url = await self.id_queue.get()
+                # print('getting id for', user_url)
                 tasks.append(asyncio.create_task(
                     self.get_id_from_url(session, user_url)))
             else:
@@ -198,8 +202,8 @@ class InstanceScanner:
         await asyncio.gather(*tasks)
 
 
-        logging.info('follower {} following {} id {}'.format(self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
-        logging.info('collected data for {}, remaining requests {}'.format(self.instance_name, n_request))
+        # logging.info('follower {} following {} id {}'.format(self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
+        # logging.info('collected data for {}, remaining requests {}'.format(self.instance_name, n_request))
 
         return n_request
 

@@ -60,6 +60,7 @@ class UserSorter:
             instance = self.all_instances.get(instance_name)
             username = self.extract_username(user_url)
 
+
             if username is None:
                 continue
 
@@ -74,10 +75,10 @@ class UserSorter:
                 loop = asyncio.get_event_loop()
                 loop.create_task(instance.main())
 
-                logging.info('number of instances currently being scraped {}'.format(len(self.all_instances)))
+                # logging.info('number of instances currently being scraped {}'.format(len(self.all_instances)))
 
             else:
-                await instance.id_queue.put(username)
+                await instance.id_queue.put(user_url)
 
     async def start_with_Gargron(self):
         await self.sort_queue.put('https://mastodon.social/@Gargron')
