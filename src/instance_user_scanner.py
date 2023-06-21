@@ -168,8 +168,8 @@ class InstanceScanner:
         """gets urls from follower and following queue, gets next page and saves new users in db"""
         while n_request > 0:
             logging.debug(n_request)
-            if self.instance_name == 'mastodon.social': 
-                print(n_request )
+            # if self.instance_name == 'mastodon.social': 
+                # print(n_request )
             completed_follower, n_request = await self.get_from_queue(self.follower_queue, tasks, session, n_request)
             completed_following, n_request = await self.get_from_queue(self.following_queue, tasks, session, n_request)
 
@@ -197,9 +197,9 @@ class InstanceScanner:
         n_request = await self.request_follower_following(tasks, session, n_request)  
         await asyncio.gather(*tasks)
 
-        if self.instance_name == 'mastodon.social': 
-            logging.info('follower {} following {} id {}'.format(self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
-            logging.info('collected data for {}, remaining requests {}'.format(self.instance_name, n_request))
+
+        logging.info('follower {} following {} id {}'.format(self.follower_queue.qsize(), self.following_queue.qsize(), self.id_queue.qsize()))
+        logging.info('collected data for {}, remaining requests {}'.format(self.instance_name, n_request))
 
         return n_request
 
@@ -216,4 +216,5 @@ class InstanceScanner:
 
 
 if __name__ == "__main__": 
+
     pass

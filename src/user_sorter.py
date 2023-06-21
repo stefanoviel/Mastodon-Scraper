@@ -49,9 +49,6 @@ class UserSorter:
         return instance
 
     async def sort(self):
-        """all instances add users of other instances to the sort queue, here they are sent to the correct instance"""
-
-        # TODO: decide how to make the loop stop
         while True:
 
             if self.sort_queue.empty() and self.check_done():
@@ -77,7 +74,7 @@ class UserSorter:
                 loop = asyncio.get_event_loop()
                 loop.create_task(instance.main())
 
-                # logging.info('number of instances {}'.format(len(self.all_instances)))
+                logging.info('number of instances currently being scraped {}'.format(len(self.all_instances)))
 
             else:
                 await instance.id_queue.put(username)

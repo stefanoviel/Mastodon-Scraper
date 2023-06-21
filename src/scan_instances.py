@@ -132,7 +132,9 @@ class ScanInstances:
             name, depth = await self.peers_queue.get()
             first = False
 
-            if not self.manageDb.has_peers(name):
+
+            has_peers = self.manageDb.has_peers(name)
+            if has_peers is not None and not has_peers:  # check that we haven't already queried the peers of this instance
                 logging.info('getting peers {}'.format(name))
                 tasks.append(asyncio.create_task(self.bound_fetch(
                     self.fetch_peers, sem, name, session, depth)))
