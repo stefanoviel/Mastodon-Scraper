@@ -1,3 +1,19 @@
+## How to run
+
+Activate mongoDB
+
+run the following command to scrape the instances
+
+```
+python -m src.scan_instances
+```
+
+run the following command to scrape the users
+
+```
+python -m src.user_sorter
+```
+
 ## Introduction - what is mastodon? 
 
 Mastodon is a decentralized and open-source social networking platform. It operates on a model known as "federated social networking," where multiple independent servers, called "instances," connect with each other to form a network of interconnected communities. Each instance represents a distinct community with its own rules and moderation policies.
