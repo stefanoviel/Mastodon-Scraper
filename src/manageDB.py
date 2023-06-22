@@ -88,7 +88,11 @@ class ManageDB():
     
     def has_peers(self, name): 
         instance = self.archive.find_one({'_id': name})
-        return 'peers' in instance
+        if instance: 
+            return 'peers' in instance
+
+        return None 
+
 
 
     def size_archive(self): 
