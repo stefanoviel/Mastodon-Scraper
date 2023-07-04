@@ -19,7 +19,7 @@ class ScanInstances:
         self.info_queue_path = info_queue_path
         self.peers_queue_path = peers_queue_path
 
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.DEBUG)
 
     async def load_queue(self, queue: asyncio.Queue, queue_name: str) -> None:
         """load a queue from txt file"""
@@ -59,13 +59,19 @@ class ScanInstances:
         except (SyntaxError, aiohttp.client_exceptions.ClientPayloadError, aiohttp.client_exceptions.ClientResponseError, aiohttp.client_exceptions.ContentTypeError, asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError, aiohttp.client_exceptions.TooManyRedirects, UnicodeError, ValueError) as e:
             return {"uri": name, "error": str(e)}, depth
 
+    def extract_list(self, peers): 
+        peers = peers[1:-1].split(',') # removes [ ]
+        new_peers = [p[1:-1] for p in peers]  # removes " "
+        print('first and last', new_peers[0], new_peers[-1])
+        return new_peers
+
     async def fetch_peers(self, name, session, depth):
         """Fetch peers of instance"""
         try:
             url = 'https://{}/api/v1/instance/peers'.format(name)
             async with session.get(url, timeout=5) as response:
-                # TODO not the safest thing maybe enough to call response.json() ???
-                return name, eval(await response.text()), depth
+
+                return name, self.extract_list(await response.text()), depth
         except (SyntaxError, aiohttp.client_exceptions.ClientPayloadError, aiohttp.client_exceptions.ClientResponseError, aiohttp.client_exceptions.ContentTypeError, asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError, aiohttp.client_exceptions.TooManyRedirects, UnicodeError, ValueError) as e:
             return name, {"uri": name, "error": str(e)}, depth
 
@@ -111,11 +117,8 @@ class ScanInstances:
         if save_every == 0:
             save_every = 1
 
-
-
         results = await asyncio.gather(*tasks)
         tasks.clear()
-
 
         await queue_saver(results)
         await self.save_info_peers_queue()
@@ -176,7 +179,6 @@ class ScanInstances:
 
         while self.peers_queue.qsize() != 0 or self.info_queue.qsize() != 0:
             iterations += 1  # second iteration doesn't save anything
-
             name, depth = await self.info_queue.get()
             logging.info('getting info {}'.format(name))
             tasks.append(asyncio.create_task(self.bound_fetch(
@@ -220,7 +222,7 @@ if __name__ == "__main__":
     instances = ScanInstances(manageDB)
 
     # for testing purposes use the below two
-    # instances.manageDb.reset_collections() 
+    # instances.manageDb.reset_collections()   
     # instances.reset_queue()
 
     instances.main()
