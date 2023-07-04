@@ -90,11 +90,14 @@ class ScanInstances:
         """save the info of the peers that have been scraped """
         for res, depth in results:
             # save even if there is an error
+            print(res is not None,  'uri' in res, not self.manageDb.is_in_archive(res["uri"]))
             if res is not None and 'uri' in res and not self.manageDb.is_in_archive(res["uri"]):
+                print(depth)
                 res['_id'] = res['uri']
                 res['depth'] = depth
                 self.manageDb.insert_one_to_archive(res)
 
+                print('adding to peers queue')
                 if depth < self.MAX_DEPTH and 'error' not in res:
                     logging.debug(
                         'info - adding to peers_queue {} {}'.format(res['uri'], depth))
@@ -108,8 +111,11 @@ class ScanInstances:
         if save_every == 0:
             save_every = 1
 
+
+
         results = await asyncio.gather(*tasks)
         tasks.clear()
+
 
         await queue_saver(results)
         await self.save_info_peers_queue()
@@ -176,6 +182,7 @@ class ScanInstances:
             tasks.append(asyncio.create_task(self.bound_fetch(
                 self.fetch_info, sem, name, session, int(depth))))
 
+            print('it', iterations, save_every)
             if iterations == save_every:
                 iterations = 0
 
