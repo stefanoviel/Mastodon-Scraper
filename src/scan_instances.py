@@ -1,4 +1,5 @@
 from src.manageDB import ManageDB
+from src.manageJSON import ManageJSON
 import logging
 import asyncio
 import aiohttp
@@ -65,7 +66,7 @@ class ScanInstances:
             url = 'https://{}/api/v1/instance/peers'.format(name)
             async with session.get(url, timeout=5) as response:
                 # TODO not the safest thing maybe enough to call response.json() ???
-                return name, eval(await response.text()), depth
+                return name, await response.json(), depth
         except (SyntaxError, aiohttp.client_exceptions.ClientPayloadError, aiohttp.client_exceptions.ClientResponseError, aiohttp.client_exceptions.ContentTypeError, asyncio.exceptions.TimeoutError, aiohttp.client_exceptions.ClientConnectorError, aiohttp.client_exceptions.ServerDisconnectedError, aiohttp.client_exceptions.ClientOSError, aiohttp.client_exceptions.TooManyRedirects, UnicodeError, ValueError) as e:
             return name, {"uri": name, "error": str(e)}, depth
 
@@ -209,7 +210,7 @@ class ScanInstances:
 
 if __name__ == "__main__":
 
-    manageDB = ManageDB('instances')
+    manageDB = ManageJSON('instances')
     instances = ScanInstances(manageDB)
 
     # for testing purposes use the below two

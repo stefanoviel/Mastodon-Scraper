@@ -16,7 +16,7 @@ class InstanceScanner:
         self.follower_queue = asyncio.Queue()
         self.following_queue = asyncio.Queue()
         self.manageDB = manageDB
-        self.manageDB.archive.create_index('instance')
+        #self.manageDB.archive.create_index('instance')
         self.done = False
 
         self.request_every_five_min = request_every_five
@@ -127,20 +127,32 @@ class InstanceScanner:
     def save_network(self, user_url: str, url: str,  user_list: list[dict]):
         """get the current dictionary of the user saved in the DB and extend the follower and following list"""
         id = self.mongo_id_from_url(user_url)
-        main_user = self.manageDB.get_from_archive(id)
-
-        print(id)
+        current_followers = self.manageDB.get_follow_instance(id)
 
         peers_id = [self.mongo_id_from_url(user.get('url')) for user in user_list]
         peers_id = list(filter(lambda item: item is not None, peers_id))
 
-        if main_user:
-            if 'followers' in url:
-                main_user['followers'].extend(peers_id)
-                self.manageDB.update_archive(main_user, True)
-            elif 'following' in url:
-                main_user['following'].extend(peers_id)
-                self.manageDB.update_archive(main_user, False)
+
+        if current_followers:
+            current_followers.extend(peers_id)
+            self.manageDB.add_follows_instance(id, current_followers)
+        else:
+            self.manageDB.add_follows_instance(id, peers_id)
+
+        # main_user = self.manageDB.get_from_archive(id)
+
+        # print(id)
+
+        # peers_id = [self.mongo_id_from_url(user.get('url')) for user in user_list]
+        # peers_id = list(filter(lambda item: item is not None, peers_id))
+
+        # if main_user:
+        #     if 'followers' in url:
+        #         main_user['followers'].extend(peers_id)
+        #         self.manageDB.update_archive(main_user)
+        #     elif 'following' in url:
+        #         main_user['following'].extend(peers_id)
+        #         self.manageDB.update_archive(main_user)
 
     async def request_ids(self, tasks: list, session: aiohttp.ClientSession, n_request: int) -> int:
         """Gets id of the users' name from the id queue, add saves corresponding urls to followers and following queue"""

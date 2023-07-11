@@ -4,6 +4,7 @@ import aiohttp
 import logging
 from src.instance_user_scanner import InstanceScanner
 from src.manageDB import ManageDB
+from src.manageJSON import ManageJSON
 
 
 class UserSorter:
@@ -86,7 +87,7 @@ class UserSorter:
 
 
 async def main():
-    mdb = ManageDB('users')
+    mdb = ManageJSON('users')
     mdb.reset_collections()
     u = UserSorter(asyncio.Queue(), asyncio.Queue(), mdb)
     await u.start_with_Gargron()
