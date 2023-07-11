@@ -1,15 +1,18 @@
-import re
 import asyncio
-import aiohttp
 import logging
+import re
+
+import aiohttp
+
 from src.instance_user_scanner import InstanceScanner
 from src.manageDB import ManageDB
 from src.manageJSON import ManageJSON
 
 
 class UserSorter:
-
-    def __init__(self, id_queue: asyncio.Queue,  sort_queue: asyncio.Queue, manageDB: ManageDB) -> None:
+    def __init__(
+        self, id_queue: asyncio.Queue, sort_queue: asyncio.Queue, manageDB: ManageDB
+    ) -> None:
         self.sort_queue = sort_queue
         self.all_instances = {}
         self.manageDB = manageDB
@@ -25,7 +28,7 @@ class UserSorter:
             return result.group(1)
 
     def extract_username(self, url):
-        username = re.search(r'@(.+)', url)
+        username = re.search(r"@(.+)", url)
         if username:
             return username.group(0)
         else:
@@ -43,24 +46,22 @@ class UserSorter:
         return True
 
     async def create_instance_scanner(self, instance_name):
-
         instance = InstanceScanner(
-            instance_name, asyncio.Queue(), self.sort_queue, self.manageDB)
+            instance_name, asyncio.Queue(), self.sort_queue, self.manageDB
+        )
         self.all_instances[instance_name] = instance
         return instance
 
     async def sort(self):
         while True:
-
             if self.sort_queue.empty() and self.check_done():
-                print('All user scraped :)')
+                print("All user scraped :)")
                 break
 
             user_url = await self.sort_queue.get()
             instance_name = self.extract_instance_name(user_url)
             instance = self.all_instances.get(instance_name)
             username = self.extract_username(user_url)
-
 
             if username is None:
                 continue
@@ -82,12 +83,12 @@ class UserSorter:
                 await instance.id_queue.put(user_url)
 
     async def start_with_Gargron(self):
-        await self.sort_queue.put('https://mastodon.social/@Gargron')
+        await self.sort_queue.put("https://mastodon.social/@Gargron")
         await self.sort()
 
 
 async def main():
-    mdb = ManageJSON('users')
+    mdb = ManageJSON("users")
     mdb.reset_collections()
     u = UserSorter(asyncio.Queue(), asyncio.Queue(), mdb)
     await u.start_with_Gargron()

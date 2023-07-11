@@ -1,12 +1,6 @@
-import os
-import logging
 import json
-
-"""
-add configuracao
-add paths as parameters 
-Network is not implemented 
-"""
+import logging
+import os
 
 
 class ManageJSON:
@@ -59,7 +53,7 @@ class ManageJSON:
             else:
                 return None
         except Exception as e:
-            #logging.info("get_from_archive: {} name {}".format(e, name))
+            # logging.info("get_from_archive: {} name {}".format(e, name))
             return None
 
     def add_follows_instance(self, instance_id, followers):
@@ -79,7 +73,9 @@ class ManageJSON:
     def get_follow_instance(self, instance_id):
         try:
             if self.is_in_archive(instance_id):
-                json_path = self.get_file_path(self.archive, instance_id, file_type="followers")
+                json_path = self.get_file_path(
+                    self.archive, instance_id, file_type="followers"
+                )
                 with open(json_path, "r") as json_file:
                     return json.load(json_file)
             else:
@@ -87,7 +83,7 @@ class ManageJSON:
         except Exception as e:
             logging.info("get_follow_instance: {} name {}".format(e, instance_id))
             return None
-        
+
     def update_archive(self, user):
         self.insert_one_to_archive(user, overwrite=True)
 
@@ -111,7 +107,7 @@ class ManageJSON:
     def has_peers(self, name):
         json_path = self.get_file_path(self.archive, name, file_type="peers")
         if os.path.exists(json_path):
-            with open (json_path, "r") as jfile: 
+            with open(json_path, "r") as jfile:
                 return json.load(jfile)
         else:
             return []
@@ -125,7 +121,6 @@ class ManageJSON:
 
     def reset_collections(self):
         pass
-
 
     def get_file_path(self, collection: str, key: str, file_type="base_file"):
         """
@@ -144,7 +139,7 @@ class ManageJSON:
                 json_path = path + f"{id_name}_follow_and_followed.json"
             else:
                 json_path = path + f"{id_name}.json"
-        else:    
+        else:
             path = self.create_folder_path(collection, key)
             if file_type == "peers":
                 json_path = path + f"{key}.peers.json"
