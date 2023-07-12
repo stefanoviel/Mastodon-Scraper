@@ -26,7 +26,7 @@ class ScanInstances:
         self.info_queue_path = info_queue_path
         self.peers_queue_path = peers_queue_path
 
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.DEBUG)
 
     async def load_queue(self, queue: asyncio.Queue, queue_name: str) -> None:
         """load a queue from txt file"""
@@ -80,13 +80,18 @@ class ScanInstances:
         ) as e:
             return {"uri": name, "error": str(e)}, depth
 
+    def extract_list(self, peers):
+        peers = peers[1:-1].split(",")  # removes [ ]
+        new_peers = [p[1:-1] for p in peers]  # removes " "
+        print("first and last", new_peers[0], new_peers[-1])
+        return new_peers
+
     async def fetch_peers(self, name, session, depth):
         """Fetch peers of instance"""
         try:
             url = "https://{}/api/v1/instance/peers".format(name)
             async with session.get(url, timeout=5) as response:
-                # TODO not the safest thing maybe enough to call response.json() ???
-                return name, await response.json(), depth
+                return name, self.extract_list(await response.text()), depth
         except (
             SyntaxError,
             aiohttp.client_exceptions.ClientPayloadError,
@@ -122,20 +127,30 @@ class ScanInstances:
         """save the info of the peers that have been scraped"""
         for res, depth in results:
             # save even if there is an error
-            if (
-                res is not None
-                and "uri" in res
-                and not self.manageDb.is_in_archive(res["uri"])
-            ):
-                res["_id"] = res["uri"]
-                res["depth"] = depth
-                self.manageDb.insert_one_to_archive(res)
+            # print(
+            #     res is not None,
+            #     "uri" in res,
+            #     not self.manageDb.is_in_archive(res["uri"]),
+            # )
+            try:
+                if (
+                    res is not None
+                    and "uri" in res
+                    and not self.manageDb.is_in_archive(res["uri"])
+                ):
+                    #print(depth)
+                    res["_id"] = res["uri"]
+                    res["depth"] = depth
+                    self.manageDb.insert_one_to_archive(res)
 
-                if depth < self.MAX_DEPTH and "error" not in res:
-                    logging.debug(
-                        "info - adding to peers_queue {} {}".format(res["uri"], depth)
-                    )
-                    await self.peers_queue.put((res["uri"], depth))
+                    print("adding to peers queue")
+                    if depth < self.MAX_DEPTH and "error" not in res:
+                        logging.debug(
+                            "info - adding to peers_queue {} {}".format(res["uri"], depth)
+                        )
+                        await self.peers_queue.put((res["uri"], depth))
+            except Exception as e:
+                continue
 
     async def save_results_reset_loop(
         self, tasks, queue_saver, save_result_every_n, queue_size
@@ -222,7 +237,6 @@ class ScanInstances:
 
         while self.peers_queue.qsize() != 0 or self.info_queue.qsize() != 0:
             iterations += 1  # second iteration doesn't save anything
-
             name, depth = await self.info_queue.get()
             logging.info("getting info {}".format(name))
             tasks.append(
@@ -231,6 +245,7 @@ class ScanInstances:
                 )
             )
 
+            print("it", iterations, save_every)
             if iterations == save_every:
                 iterations = 0
 
