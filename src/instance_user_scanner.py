@@ -151,8 +151,8 @@ class InstanceScanner:
         for r in user_list:
             r["_id"] = self.mongo_id_from_url(r["url"])
             r["instance"] = self.extract_instance_name(r["url"])
-            r["followers"] = []
-            r["following"] = []
+            # r["followers"] = []
+            # r["following"] = []
             if not self.manageDB.is_in_archive(r["_id"]):
                 posts.append(r)
 

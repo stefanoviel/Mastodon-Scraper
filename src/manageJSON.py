@@ -34,8 +34,9 @@ class ManageJSON:
             os.makedirs(path, exist_ok=True)
             # create file
             json_path = self.get_file_path(self.archive, id)
-            with open(json_path, "w") as json_file:
-                json.dump(info, json_file)
+            if json_path != "":
+                with open(json_path, "w") as json_file:
+                    json.dump(info, json_file)
         except Exception as e:
             logging.info("insert_one_to_archive: {}".format(e))
             pass
@@ -53,7 +54,7 @@ class ManageJSON:
             else:
                 return None
         except Exception as e:
-            # logging.info("get_from_archive: {} name {}".format(e, name))
+            logging.info("get_from_archive: {} name {}".format(e, name))
             return None
 
     def add_follows_instance(self, instance_id, followers):
@@ -64,8 +65,9 @@ class ManageJSON:
             os.makedirs(path, exist_ok=True)
             # create file
             json_path = self.get_file_path(self.archive, id, file_type="followers")
-            with open(json_path, "w") as json_file:
-                json.dump(followers, json_file)
+            if json_path != "":
+                with open(json_path, "w") as json_file:
+                    json.dump(followers, json_file)
         except Exception as e:
             logging.info("add_follows_instance: {}".format(e))
             pass
@@ -81,7 +83,7 @@ class ManageJSON:
             else:
                 return None
         except Exception as e:
-            logging.info("get_follow_instance: {} name {}".format(e, instance_id))
+            #logging.info("get_follow_instance: {} name {}".format(e, instance_id))
             return None
 
     def update_archive(self, user):
@@ -95,8 +97,9 @@ class ManageJSON:
             os.makedirs(path, exist_ok=True)
             # create file
             json_path = self.get_file_path(self.archive, id, file_type="peers")
-            with open(json_path, "w") as json_file:
-                json.dump(peers, json_file)
+            if json_path != "":
+                with open(json_path, "w") as json_file:
+                    json.dump(peers, json_file)
         except Exception as e:
             logging.info("add_peers_instance: {}".format(e))
             pass
@@ -111,13 +114,6 @@ class ManageJSON:
                 return json.load(jfile)
         else:
             return []
-        # instance = self.get_from_archive(name)
-        # if instance:
-        #     if "peers" in instance.keys():
-        #         return instance["peers"]
-        #     else:
-        #         return []
-        # return None
 
     def reset_collections(self):
         pass
@@ -132,19 +128,22 @@ class ManageJSON:
         test.it = base_dir/it/test/test.it.json
         """
         json_path = ""
-        if self.db_name == "users":
-            path = self.create_folder_path(collection, key)
-            id_name = key.split("{}".format(self.sep))[1]
-            if file_type == "followers":
-                json_path = path + f"{id_name}_follow_and_followed.json"
+        try:
+            if self.db_name == "users":
+                path = self.create_folder_path(collection, key)
+                id_name = key.split("{}".format(self.sep))[1]
+                if file_type == "followers":
+                    json_path = path + f"{id_name}_follow_and_followed.json"
+                else:
+                    json_path = path + f"{id_name}.json"
             else:
-                json_path = path + f"{id_name}.json"
-        else:
-            path = self.create_folder_path(collection, key)
-            if file_type == "peers":
-                json_path = path + f"{key}.peers.json"
-            else:
-                json_path = path + f"{key}.json"
+                path = self.create_folder_path(collection, key)
+                if file_type == "peers":
+                    json_path = path + f"{key}.peers.json"
+                else:
+                    json_path = path + f"{key}.json"
+        except Exception as e:
+            logging.info("get_file_path: {}".format(e))
 
         return json_path
 
@@ -155,33 +154,37 @@ class ManageJSON:
         test.it = base_dir/it/test/
         """
         # Remove the username from the key and reverse the order of the remaining parts
-        if self.db_name == "users":
-            parts = key.split("{}".format(self.sep))
-            server_url = parts[0].split(".")
-            server_url.insert(0, "@")
-            username = parts[1].lstrip("@")
-        else:
-            server_url = key.split(".")
+        try:
+            if self.db_name == "users":
+                parts = key.split("{}".format(self.sep))
+                server_url = parts[0].split(".")
+                server_url.insert(0, "@")
+                username = parts[1].lstrip("@")
+            else:
+                server_url = key.split(".")
 
-        reversed_parts = list(reversed(server_url))
+            reversed_parts = list(reversed(server_url))
 
-        # Create the subfolders based on the inverse key
-        current_path = base_dir
-        for part in reversed_parts:
-            current_path = os.path.join(current_path, part)
+            # Create the subfolders based on the inverse key
+            current_path = base_dir
+            for part in reversed_parts:
+                current_path = os.path.join(current_path, part)
 
-        if self.db_name == "users":
-            # count 2 caracters to create subfolder
-            for i in range(0, len(username), 2):
-                # Check if the remaining characters are less than 2
-                if i + 1 == len(username):
-                    # Read only the last character
-                    char = username[i]
-                else:
-                    # Read 2 characters at a time
-                    char = username[i : i + 2]
+            if self.db_name == "users":
+                # count 2 caracters to create subfolder
+                for i in range(0, len(username), 2):
+                    # Check if the remaining characters are less than 2
+                    if i + 1 == len(username):
+                        # Read only the last character
+                        char = username[i]
+                    else:
+                        # Read 2 characters at a time
+                        char = username[i : i + 2]
 
-                current_path = os.path.join(current_path, char)
+                    current_path = os.path.join(current_path, char)
 
-        # Return the path to the final subfolder
-        return current_path + self.sep
+            # Return the path to the final subfolder
+            return current_path + self.sep
+        except Exception as e:
+            logging.info("create_folder_path: {} {}".format(e, key))
+            return ""
