@@ -57,14 +57,14 @@ class ManageJSON:
             logging.info("get_from_archive: {} name {}".format(e, name))
             return None
 
-    def add_follows_instance(self, instance_id, followers):
+    def add_follows_instance(self, instance_id, followers, follower_type: str):
         try:
             id = instance_id
             path = self.create_folder_path(self.archive, id)
             # create path
             os.makedirs(path, exist_ok=True)
             # create file
-            json_path = self.get_file_path(self.archive, id, file_type="followers")
+            json_path = self.get_file_path(self.archive, id, file_type=follower_type)
             if json_path != "":
                 with open(json_path, "w") as json_file:
                     json.dump(followers, json_file)
@@ -72,18 +72,18 @@ class ManageJSON:
             logging.info("add_follows_instance: {}".format(e))
             pass
 
-    def get_follow_instance(self, instance_id):
+    def get_follows_instance(self, instance_id, follower_type: str):
         try:
             if self.is_in_archive(instance_id):
                 json_path = self.get_file_path(
-                    self.archive, instance_id, file_type="followers"
+                    self.archive, instance_id, file_type=follower_type
                 )
                 with open(json_path, "r") as json_file:
                     return json.load(json_file)
             else:
                 return None
         except Exception as e:
-            #logging.info("get_follow_instance: {} name {}".format(e, instance_id))
+            # logging.info("get_follow_instance: {} name {}".format(e, instance_id))
             return None
 
     def update_archive(self, user):
@@ -132,8 +132,12 @@ class ManageJSON:
             if self.db_name == "users":
                 path = self.create_folder_path(collection, key)
                 id_name = key.split("{}".format(self.sep))[1]
-                if file_type == "followers":
-                    json_path = path + f"{id_name}_follow_and_followed.json"
+                if file_type == "all_follow":
+                    json_path = path + f"{id_name}_all_follow.json"
+                elif file_type == "followers":
+                    json_path = path + f"{id_name}_followers.json"
+                elif file_type == "following":
+                    json_path = path + f"{id_name}_following.json"
                 else:
                     json_path = path + f"{id_name}.json"
             else:

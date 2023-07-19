@@ -5,7 +5,7 @@ import re
 
 import aiohttp
 
-from src.manageDB import ManageDB
+from src.manageJSON import ManageJSON
 
 
 class InstanceScanner:
@@ -14,7 +14,7 @@ class InstanceScanner:
         instance_name: str,
         id_queue: asyncio.Queue,
         sort_queue: asyncio.Queue,
-        manageDB: ManageDB,
+        manageDB: ManageJSON,
         request_every_five=300,
     ) -> None:
         self.instance_name = instance_name
@@ -162,16 +162,51 @@ class InstanceScanner:
     def save_network(self, user_url: str, url: str, user_list: list[dict]):
         """get the current dictionary of the user saved in the DB and extend the follower and following list"""
         id = self.mongo_id_from_url(user_url)
-        current_followers = self.manageDB.get_follow_instance(id)
+        current_all = self.manageDB.get_follows_instance(id, follower_type="all_follow")
 
         peers_id = [self.mongo_id_from_url(user.get("url")) for user in user_list]
         peers_id = list(filter(lambda item: item is not None, peers_id))
 
-        if current_followers:
-            current_followers.extend(peers_id)
-            self.manageDB.add_follows_instance(id, current_followers)
+        if "followers" in url:
+            current_followers = self.manageDB.get_follows_instance(
+                id, follower_type="followers"
+            )
+            if current_followers:
+                current_followers.extend(peers_id)
+                # remove duplicates
+                current_followers = list(dict.fromkeys(current_followers))
+                self.manageDB.add_follows_instance(
+                    id, current_followers, follower_type="followers"
+                )
+            else:
+                self.manageDB.add_follows_instance(
+                    id, peers_id, follower_type="followers"
+                )
+        elif "following" in url:
+            current_following = self.manageDB.get_follows_instance(
+                id, follower_type="following"
+            )
+            if current_following:
+                current_following.extend(peers_id)
+                # remove duplicates
+                current_following = list(dict.fromkeys(current_following))
+                self.manageDB.add_follows_instance(
+                    id, current_following, follower_type="following"
+                )
+            else:
+                self.manageDB.add_follows_instance(
+                    id, peers_id, follower_type="following"
+                )
+
+        if current_all:
+            current_all.extend(peers_id)
+            # remove duplicates
+            current_all = list(dict.fromkeys(current_all))
+            self.manageDB.add_follows_instance(
+                id, current_all, follower_type="all_follow"
+            )
         else:
-            self.manageDB.add_follows_instance(id, peers_id)
+            self.manageDB.add_follows_instance(id, peers_id, follower_type="all_follow")
 
     async def request_ids(
         self, tasks: list, session: aiohttp.ClientSession, n_request: int
