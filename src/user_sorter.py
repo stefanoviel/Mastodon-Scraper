@@ -53,34 +53,36 @@ class UserSorter:
         return instance
 
     async def sort(self):
-        while True:
-            if self.sort_queue.empty() and self.check_done():
-                print("All user scraped :)")
-                break
+        connector = aiohttp.TCPConnector(force_close=True,limit=500, limit_per_host=50)
+        async with aiohttp.ClientSession(connector=connector,trust_env=True) as session:
+            while True:
+                if self.sort_queue.empty() and self.check_done():
+                    print("All user scraped :)")
+                    break
 
-            user_url = await self.sort_queue.get()
-            instance_name = self.extract_instance_name(user_url)
-            instance = self.all_instances.get(instance_name)
-            username = self.extract_username(user_url)
+                user_url = await self.sort_queue.get()
+                instance_name = self.extract_instance_name(user_url)
+                instance = self.all_instances.get(instance_name)
+                username = self.extract_username(user_url)
 
-            if username is None:
-                continue
+                if username is None:
+                    continue
 
-            if instance is None:
-                # logging.debug('adding instance {}'.format(instance_name))
-                self.remove_done_instances()
+                if instance is None:
+                    # logging.debug('adding instance {}'.format(instance_name))
+                    self.remove_done_instances()
 
-                instance = await self.create_instance_scanner(instance_name)
+                    instance = await self.create_instance_scanner(instance_name)
 
-                await instance.id_queue.put(user_url)
+                    await instance.id_queue.put(user_url)
 
-                loop = asyncio.get_event_loop()
-                loop.create_task(instance.main())
+                    loop = asyncio.get_event_loop()
+                    loop.create_task(instance.main(session=session))
 
-                # logging.info('number of instances currently being scraped {}'.format(len(self.all_instances)))
+                    # logging.info('number of instances currently being scraped {}'.format(len(self.all_instances)))
 
-            else:
-                await instance.id_queue.put(user_url)
+                else:
+                    await instance.id_queue.put(user_url)
 
     async def start_with_Gargron(self):
         await self.sort_queue.put("https://mastodon.social/@Gargron")

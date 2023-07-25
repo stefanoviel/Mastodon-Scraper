@@ -4,6 +4,7 @@ import math
 import re
 
 import aiohttp
+import requests
 
 from src.manageJSON import ManageJSON
 
@@ -73,22 +74,16 @@ class InstanceScanner:
         url = "https://{}/api/v2/search/?q={}".format(self.instance_name, name)
 
         try:
-            async with session.get(url, timeout=5) as response:
-                res = await response.json()
+            with requests.get(url, timeout=5) as response:
+                res = response.json()
 
             if "accounts" in res and len(res["accounts"]) > 0:
                 await self.add_id_following_follower_queue(
                     res["accounts"][0]["id"], user_url
                 )
                 self.save_users([res["accounts"][0]])
-        except (
-            asyncio.exceptions.TimeoutError,
-            aiohttp.client_exceptions.ClientConnectorError,
-            aiohttp.client_exceptions.ContentTypeError,
-            aiohttp.client_exceptions.ClientConnectorCertificateError,
-            aiohttp.client_exceptions.ServerDisconnectedError,
-        ) as e:
-            logging.debug("TIMEOUT")
+        except Exception as e:
+            logging.debug("ERROR {}".format(e))
 
     async def get_following_followers(
         self, session: aiohttp.ClientSession, url: str, user_url: str
@@ -98,10 +93,8 @@ class InstanceScanner:
         # print('querying {}'.format(url))
         params = {"limit": 80}
         try:
-            async with session.get(url, params=params, timeout=5) as response:
-                res = (
-                    await response.json()
-                )  # list of followers and followings and their info
+            with requests.get(url, params=params, timeout=5) as response:
+                res = response.json()  # list of followers and followings and their info
 
                 if "next" in response.links.keys():
                     new_url = str(response.links["next"]["url"])
@@ -123,12 +116,7 @@ class InstanceScanner:
                 # else:
                 # print('not savig', res)
 
-        except (
-            asyncio.exceptions.TimeoutError,
-            aiohttp.client_exceptions.ClientConnectorError,
-            aiohttp.client_exceptions.ContentTypeError,
-            aiohttp.client_exceptions.ServerDisconnectedError,
-        ) as e:
+        except Exception as e:
             logging.debug("requesting followers threw {}".format(e))
 
     async def sort_new_users(self, user_list):
@@ -282,20 +270,20 @@ class InstanceScanner:
 
         return n_request
 
-    async def main(self):
+    async def main(self, session):
         """create session and start both processes"""
 
         n_request = 300
 
-        async with aiohttp.ClientSession(trust_env=True) as session:
-            while (
-                not self.follower_queue.empty()
-                or not self.id_queue.empty()
-                or not self.following_queue.empty()
-            ):
-                n_request = await self.request_id_and_url(n_request, session)
+        # async with aiohttp.ClientSession(connector=connector,trust_env=True) as session:
+        while (
+            not self.follower_queue.empty()
+            or not self.id_queue.empty()
+            or not self.following_queue.empty()
+        ):
+            n_request = await self.request_id_and_url(n_request, session)
 
-            self.done = True
+        self.done = True
 
 
 if __name__ == "__main__":
