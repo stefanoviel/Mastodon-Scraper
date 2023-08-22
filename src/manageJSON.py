@@ -18,6 +18,10 @@ class ManageJSON:
         json_path = self.get_file_path(self.archive, instance_id)
         return os.path.exists(json_path)
 
+    def has_followers(self, instance_id: str) -> bool:
+        json_path = self.get_file_path(self.archive, instance_id, file_type="followers")
+        return os.path.exists(json_path)
+
     def is_in_network(self, instance_id: str) -> bool:
         json_path = self.get_file_path(self.network, instance_id)
         return os.path.exists(json_path)
@@ -122,7 +126,7 @@ class ManageJSON:
         """
         generate the json file name and path based on the key as the examples
         file_type = base_file:
-        test.it/@myuser = base_dir/it/test/@/my/us/er/myuser.json
+        test.it/@myuser = base_dir/it/test/@/my/us/er/myuser_info.json
         test.it = base_dir/it/test/test.it.json
         file_type = peers:
         test.it = base_dir/it/test/test.it.json
@@ -139,7 +143,7 @@ class ManageJSON:
                 elif file_type == "following":
                     json_path = path + f"{id_name}_following.json"
                 else:
-                    json_path = path + f"{id_name}.json"
+                    json_path = path + f"{id_name}_info.json"
             else:
                 path = self.create_folder_path(collection, key)
                 if file_type == "peers":
