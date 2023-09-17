@@ -151,11 +151,6 @@ One instance class will be created for each instance. Every five minutes the ins
 * Following/followers requests start from the following and follower queue. From these queues we obtain the URL of the endpoint to which we can require the followers or followings of a certain user. If that user has more than 80 followers (or following) in the response we’ll also obtain a pagination link which will be added to the following and follower queues for the future requests. 
 
 
-
-
-![alt_text](images/image2.png "image_tooltip")
-
-
 Once we obtain the followers or following of a certain user these could either be users of the same instance of the user they follow or from another instance. If they’re from the same instance the id that we obtain (in the response of the followers request) can directly be used to fetch the followers and followings of the new user. 
 
 If, on the other hand, the follower doesn’t belong to the same instance of the followed user, its identifier will be sent to the sort queue. 
@@ -166,34 +161,5 @@ If the followers queue, the following queue and id queue are all empty it means 
 
 When an instance finds a user (in the following and follower list) that doesn’t belong to the same instance it adds it to the sort queue. The user sorter sends each user from the sort queue to the corresponding instance. The url of the user is made of two parts: instance_name@username. So it allows the user sorter to add the user to the right id queue. In case a certain instance class isn’t present the sorter instantiates a new class. 
 
-
-## Storage format
-
-An example of a user json in mongoDB: 
-
-
-
-![alt_text](images/image3.png "image_tooltip")
-
-
-This is the json obtained as response when requiring information of a user from the API with a few additional fields:
-
-
-
-* _id which allows to uniquely identify the user in the database
-* followers/following: two lists where each element is the id of another user who followed or follows this user. 
-
-The json saved for the instance has all the information obtained from the API, plus an additional attribute for the peers of the instance (a list). 
-
-
-
-
-![alt_text](images/image4.png "image_tooltip")
-
-
 Many instances don’t respond to the request of information (either because they don’t exist anymore or because they haven’t opened the API endpoint). We’ll also save the error message received by these instances: 
 
-
-
-
-![alt_text](images/image5.png "image_tooltip")
